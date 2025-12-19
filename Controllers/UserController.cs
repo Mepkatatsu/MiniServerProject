@@ -55,7 +55,7 @@ namespace MiniServerProject.Controllers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.UserId == id);
 
-            if (user is null)
+            if (user == null)
                 return NotFound();
 
             return Ok(new

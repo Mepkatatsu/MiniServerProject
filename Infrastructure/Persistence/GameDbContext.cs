@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MiniServerProject.Domain.Entities;
+using MiniServerProject.Domain.ServerLogs;
 
 namespace MiniServerProject.Infrastructure.Persistence
 {
@@ -8,6 +9,7 @@ namespace MiniServerProject.Infrastructure.Persistence
         public GameDbContext(DbContextOptions<GameDbContext> options) : base(options) { }
 
         public DbSet<User> Users => Set<User>();
+        public DbSet<StageEnterLog> StageEnterLogs => Set<StageEnterLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -2,6 +2,6 @@
 {
     public sealed class CreateUserRequest
     {
-        public string Nickname { get; set; } = string.Empty;
+        public required string Nickname { get; init; }
     }
 }

@@ -8,20 +8,20 @@ namespace MiniServerProject.Domain.Table
         {
             // TODO: 로컬 테이블에서 데이터를 읽어오도록 수정 필요
 
-            StageData stageData1 = new()
+            StageData testStage1Data = new()
             {
-                RewardId = "stageReward1",
+                RewardId = "TEST-001-NORNAL-REWARD",
                 NeedStamina = 10,
             };
 
-            StageData stageData2 = new()
+            StageData testStage2Data = new()
             {
-                RewardId = "stageReward2",
+                RewardId = "TEST-002-NORNAL-REWARD",
                 NeedStamina = 10,
             };
 
-            datas.Add("stageData1", stageData1);
-            datas.Add("stageData2", stageData2);
+            datas.Add("TEST-001-NORNAL", testStage1Data);
+            datas.Add("TEST-002-NORNAL", testStage2Data);
         }
     }
 

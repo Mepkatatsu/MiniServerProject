@@ -18,6 +18,8 @@ namespace MiniServerProject.Domain.Entities
 
         public string? CurrentStageId { get; private set; }
 
+        private ushort MaxRecoverableStamina => TableHolder.GetTable<StaminaTable>().Get(Level)?.MaxRecoverableStamina ?? 0;
+
         protected User() { }
 
         public User(string nickname)
@@ -37,8 +39,7 @@ namespace MiniServerProject.Domain.Entities
 
         public bool UpdateStaminaByDateTime(DateTime currentDateTime)
         {
-            ushort maxRecoverableStamina = TableHolder.GetTable<StaminaTable>().Get(Level)?.MaxRecoverableStamina ?? 0;
-            if (Stamina >= maxRecoverableStamina)
+            if (Stamina >= MaxRecoverableStamina)
                 return false;
 
             long elapsedSec = (long)(currentDateTime - LastStaminaUpdateTime).TotalSeconds;
@@ -55,8 +56,8 @@ namespace MiniServerProject.Domain.Entities
             uint rawRecoverCount = (uint)(elapsedSec / recoverCycleSec);
             
             ushort finalStamina;
-            if (rawRecoverCount > maxRecoverableStamina - Stamina)
-                finalStamina = maxRecoverableStamina;
+            if (rawRecoverCount > MaxRecoverableStamina - Stamina)
+                finalStamina = MaxRecoverableStamina;
             else
                 finalStamina = (ushort)(Stamina + rawRecoverCount);
 
@@ -74,12 +75,19 @@ namespace MiniServerProject.Domain.Entities
             return Stamina >= amount;
         }
 
-        public void ConsumeStamina(ushort amount)
+        public bool ConsumeStamina(ushort amount, DateTime currentDateTime)
         {
+            UpdateStaminaByDateTime(currentDateTime);
+
             if (!HasStamina(amount))
-                throw new InvalidOperationException("Not enough Stamina");
+                return false;
+
+            // 기존에 or 회복으로 인해 최대치가 되었다면 회복 시작 시간을 현재 시간으로 세팅
+            if (Stamina >= MaxRecoverableStamina)
+                LastStaminaUpdateTime = currentDateTime;
 
             Stamina -= amount;
+            return true;
         }
 
         public void AddGold(ulong amount)
@@ -90,6 +98,11 @@ namespace MiniServerProject.Domain.Entities
         public void AddExp(ulong amount)
         {
             Exp += amount;
+        }
+
+        public void SetCurrentStage(string? stageId)
+        {
+            CurrentStageId = stageId;
         }
     }
 }
