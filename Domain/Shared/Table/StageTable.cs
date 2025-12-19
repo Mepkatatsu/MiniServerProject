@@ -28,6 +28,6 @@ namespace MiniServerProject.Domain.Table
     public class StageData
     {
         public string RewardId = string.Empty;
-        public short NeedStamina;
+        public ushort NeedStamina;
     }
 }

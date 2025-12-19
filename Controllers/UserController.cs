@@ -2,8 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using MiniServerProject.Controllers.Request;
 using MiniServerProject.Domain.Entities;
-using MiniServerProject.Domain.Shared.Table;
-using MiniServerProject.Domain.Table;
 using MiniServerProject.Infrastructure.Persistence;
 
 namespace MiniServerProject.Controllers
@@ -26,9 +24,7 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.Nickname))
                 return BadRequest("Nickname is required.");
 
-            short initialStamina = TableHolder.GetTable<MaxStaminaTable>().Get(1)?.MaxStamina ?? 0;
-
-            var user = new User(request.Nickname, initialStamina);
+            var user = new User(request.Nickname);
 
             _db.Users.Add(user);
             await _db.SaveChangesAsync();
@@ -45,7 +41,8 @@ namespace MiniServerProject.Controllers
                     user.Gold,
                     user.Exp,
                     user.CreateDateTime,
-                    user.LastStaminaUpdateTime
+                    user.LastStaminaUpdateTime,
+                    user.CurrentStageId
                 }
             );
         }
@@ -70,7 +67,8 @@ namespace MiniServerProject.Controllers
                 user.Gold,
                 user.Exp,
                 user.CreateDateTime,
-                user.LastStaminaUpdateTime
+                user.LastStaminaUpdateTime,
+                user.CurrentStageId
             });
         }
     }
