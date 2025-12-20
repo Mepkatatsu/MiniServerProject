@@ -10,6 +10,7 @@ namespace MiniServerProject.Infrastructure.Persistence
 
         public DbSet<User> Users => Set<User>();
         public DbSet<StageEnterLog> StageEnterLogs => Set<StageEnterLog>();
+        public DbSet<StageClearLog> StageClearLogs => Set<StageClearLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

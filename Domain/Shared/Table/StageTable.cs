@@ -10,18 +10,18 @@ namespace MiniServerProject.Domain.Table
 
             StageData testStage1Data = new()
             {
-                RewardId = "TEST-001-NORNAL-REWARD",
+                RewardId = "TEST-001-NORMAL-REWARD",
                 NeedStamina = 10,
             };
 
             StageData testStage2Data = new()
             {
-                RewardId = "TEST-002-NORNAL-REWARD",
+                RewardId = "TEST-002-NORMAL-REWARD",
                 NeedStamina = 10,
             };
 
-            datas.Add("TEST-001-NORNAL", testStage1Data);
-            datas.Add("TEST-002-NORNAL", testStage2Data);
+            datas.Add("TEST-001-NORMAL", testStage1Data);
+            datas.Add("TEST-002-NORMAL", testStage2Data);
         }
     }
 

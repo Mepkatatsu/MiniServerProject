@@ -104,5 +104,13 @@ namespace MiniServerProject.Domain.Entities
         {
             CurrentStageId = stageId;
         }
+
+        public void ClearCurrentStage(string stageId)
+        {
+            if (CurrentStageId != stageId)
+                throw new InvalidOperationException($"User is not in this stage. CurrentStageId: {CurrentStageId ?? "null"}, stageId: {stageId}");
+
+            CurrentStageId = null;
+        }
     }
 }

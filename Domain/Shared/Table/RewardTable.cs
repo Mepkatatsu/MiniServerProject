@@ -10,24 +10,24 @@ namespace MiniServerProject.Domain.Table
 
             RewardData rewardData1 = new()
             {
-                gold = 1,
-                exp = 1,
+                Gold = 1,
+                Exp = 1,
             };
 
             RewardData rewardData2 = new()
             {
-                gold = 2,
-                exp = 2,
+                Gold = 2,
+                Exp = 2,
             };
 
-            datas.Add("stageReward1", rewardData1);
-            datas.Add("stageReward2", rewardData2);
+            datas.Add("TEST-001-NORMAL-REWARD", rewardData1);
+            datas.Add("TEST-002-NORMAL-REWARD", rewardData2);
         }
     }
 
     public class RewardData
     {
-        public ulong gold;
-        public ulong exp;
+        public ulong Gold;
+        public ulong Exp;
     }
 }

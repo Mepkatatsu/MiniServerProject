@@ -56,7 +56,7 @@ namespace MiniServerProject.Controllers
                 .FirstOrDefaultAsync(x => x.UserId == id);
 
             if (user == null)
-                return NotFound();
+                return NotFound($"User not found. userId: {id}");
 
             return Ok(new
             {
