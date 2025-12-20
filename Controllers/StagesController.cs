@@ -51,7 +51,7 @@ namespace MiniServerProject.Controllers
                     return Conflict("RequestId already used for a different stage.");
 
                 response = new EnterStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
@@ -93,13 +93,13 @@ namespace MiniServerProject.Controllers
                 }
 
                 response = new EnterStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
 
             response = new EnterStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
             return Ok(response);
         }
@@ -140,7 +140,7 @@ namespace MiniServerProject.Controllers
                     return Conflict("RequestId already used for a different stage.");
 
                 response = new ClearStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
@@ -185,13 +185,13 @@ namespace MiniServerProject.Controllers
                 }
 
                 response = new ClearStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
 
             response = new ClearStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
             return Ok(response);
         }
@@ -232,7 +232,7 @@ namespace MiniServerProject.Controllers
                     return Conflict("RequestId already used for a different stage.");
 
                 response = new GiveUpStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
@@ -273,13 +273,13 @@ namespace MiniServerProject.Controllers
                 }
 
                 response = new GiveUpStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
                 return Ok(response);
             }
 
             response = new GiveUpStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
             return Ok(response);
         }
