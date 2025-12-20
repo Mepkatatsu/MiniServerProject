@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MiniServerProject.Infrastructure.Persistence;
+using MiniServerProject.Infrastructure.Redis;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,19 @@ builder.Services.AddDbContext<GameDbContext>(options =>
 {
     options.UseMySql(cs, ServerVersion.AutoDetect(cs));
 });
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var opt = ConfigurationOptions.Parse("localhost:6379");
+    opt.AbortOnConnectFail = false;
+    opt.ConnectTimeout = 200;
+    opt.SyncTimeout = 200;
+    opt.AsyncTimeout = 200;
+
+    return ConnectionMultiplexer.Connect(opt);
+});
+
+builder.Services.AddSingleton<IdempotencyCache>();
 
 var app = builder.Build();
 

@@ -6,6 +6,7 @@ using MiniServerProject.Domain.ServerLogs;
 using MiniServerProject.Domain.Shared.Table;
 using MiniServerProject.Domain.Table;
 using MiniServerProject.Infrastructure.Persistence;
+using MiniServerProject.Infrastructure.Redis;
 
 namespace MiniServerProject.Controllers
 {
@@ -14,10 +15,12 @@ namespace MiniServerProject.Controllers
     public sealed class StagesController : ControllerBase
     {
         private readonly GameDbContext _db;
+        private readonly IdempotencyCache _idemCache;
 
-        public StagesController(GameDbContext db)
+        public StagesController(GameDbContext db, IdempotencyCache idemCache)
         {
             _db = db;
+            _idemCache = idemCache;
         }
 
         // POST stages/{stageId}/enter
@@ -31,6 +34,15 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
+            var cacheKey = $"idem:stages:enter:{request.UserId}:{request.RequestId}";
+
+            var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
+            if (response != null)
+            {
+                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                return Ok(response);
+            }
+
             var log = await FindEnterLogAsync(request.UserId, request.RequestId);
 
             if (log != null)
@@ -38,7 +50,10 @@ namespace MiniServerProject.Controllers
                 if (log.StageId != stageId)
                     return Conflict("RequestId already used for a different stage.");
 
-                return Ok(new EnterStageResponse(log));
+                response = new EnterStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
@@ -77,10 +92,16 @@ namespace MiniServerProject.Controllers
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
-                return Ok(new EnterStageResponse(log));
+                response = new EnterStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
-            return Ok(new EnterStageResponse(log));
+            response = new EnterStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+            return Ok(response);
         }
 
         private async Task<StageEnterLog?> FindEnterLogAsync(ulong userId, string requestId)
@@ -102,6 +123,15 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
+            var cacheKey = $"idem:stages:clear:{request.UserId}:{request.RequestId}";
+
+            var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
+            if (response != null)
+            {
+                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                return Ok(response);
+            }
+
             var log = await FindClearLogAsync(request.UserId, request.RequestId);
 
             if (log != null)
@@ -109,7 +139,10 @@ namespace MiniServerProject.Controllers
                 if (log.StageId != stageId)
                     return Conflict("RequestId already used for a different stage.");
 
-                return Ok(new ClearStageResponse(log));
+                response = new ClearStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
@@ -151,10 +184,16 @@ namespace MiniServerProject.Controllers
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
-                return Ok(new ClearStageResponse(log));
+                response = new ClearStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
-            return Ok(new ClearStageResponse(log));
+            response = new ClearStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+            return Ok(response);
         }
 
         private async Task<StageClearLog?> FindClearLogAsync(ulong userId, string requestId)
@@ -176,6 +215,15 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
+            var cacheKey = $"idem:stages:give-up:{request.UserId}:{request.RequestId}";
+
+            var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
+            if (response != null)
+            {
+                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                return Ok(response);
+            }
+
             var log = await FindGiveUpLogAsync(request.UserId, request.RequestId);
 
             if (log != null)
@@ -183,7 +231,10 @@ namespace MiniServerProject.Controllers
                 if (log.StageId != stageId)
                     return Conflict("RequestId already used for a different stage.");
 
-                return Ok(new GiveUpStageResponse(log));
+                response = new GiveUpStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
@@ -221,10 +272,16 @@ namespace MiniServerProject.Controllers
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
-                return Ok(new GiveUpStageResponse(log));
+                response = new GiveUpStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+                return Ok(response);
             }
 
-            return Ok(new GiveUpStageResponse(log));
+            response = new GiveUpStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromHours(24));
+
+            return Ok(response);
         }
 
         private async Task<StageGiveUpLog?> FindGiveUpLogAsync(ulong userId, string requestId)
