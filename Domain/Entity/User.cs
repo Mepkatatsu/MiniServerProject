@@ -112,7 +112,7 @@ namespace MiniServerProject.Domain.Entities
             Exp += amount;
         }
 
-        public void SetCurrentStage(string? stageId)
+        public void SetCurrentStage(string stageId)
         {
             CurrentStageId = stageId;
         }

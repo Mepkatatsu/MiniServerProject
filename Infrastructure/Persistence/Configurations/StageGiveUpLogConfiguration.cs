@@ -27,6 +27,14 @@ namespace MiniServerProject.Infrastructure.Persistence.Configurations
                 .HasMaxLength(64)
                 .IsRequired();
 
+            entity.Property(x => x.RefundStamina)
+                .HasColumnType("smallint unsigned")
+                .IsRequired();
+
+            entity.Property(x => x.AfterStamina)
+                .HasColumnType("smallint unsigned")
+                .IsRequired();
+
             entity.Property(x => x.GaveUpDateTime)
                 .HasColumnType("datetime(6)")
                 .IsRequired();

@@ -27,6 +27,26 @@ namespace MiniServerProject.Infrastructure.Persistence.Configurations
                 .HasMaxLength(64)
                 .IsRequired();
 
+            entity.Property(x => x.RewardId)
+                .HasMaxLength(32)
+                .IsRequired();
+
+            entity.Property(x => x.GainGold)
+                .HasColumnType("bigint unsigned")
+                .IsRequired();
+
+            entity.Property(x => x.GainExp)
+                .HasColumnType("bigint unsigned")
+                .IsRequired();
+
+            entity.Property(x => x.AfterGold)
+                .HasColumnType("bigint unsigned")
+                .IsRequired();
+
+            entity.Property(x => x.AfterExp)
+                .HasColumnType("bigint unsigned")
+                .IsRequired();
+
             entity.Property(x => x.ClearedDateTime)
                 .HasColumnType("datetime(6)")
                 .IsRequired();

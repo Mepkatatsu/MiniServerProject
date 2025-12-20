@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniServerProject.Controllers.Request;
+using MiniServerProject.Controllers.Response;
 using MiniServerProject.Domain.ServerLogs;
 using MiniServerProject.Domain.Shared.Table;
 using MiniServerProject.Domain.Table;
@@ -30,7 +31,15 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var now = DateTime.UtcNow;
+            var log = await FindEnterLogAsync(request.UserId, request.RequestId);
+
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    return Conflict("RequestId already used for a different stage.");
+
+                return Ok(new EnterStageResponse(log));
+            }
 
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
             if (user == null)
@@ -46,11 +55,13 @@ namespace MiniServerProject.Controllers
             try
             {
                 // 1) 스태미너 체크/소모
+                var now = DateTime.UtcNow;
                 if (!user.ConsumeStamina(stageData.NeedStamina, now))
                     return BadRequest(new { error = "NotEnoughStamina", current = user.Stamina, required = stageData.NeedStamina });
 
                 // 2) 멱등성 보장을 위해 로그 INSERT
-                _db.StageEnterLogs.Add(new StageEnterLog(user.UserId, stageId, request.RequestId, now));
+                log = new StageEnterLog(user.UserId, stageId, request.RequestId, stageData.NeedStamina, user.Stamina, now);
+                _db.StageEnterLogs.Add(log);
 
                 user.SetCurrentStage(stageId);
 
@@ -58,19 +69,26 @@ namespace MiniServerProject.Controllers
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // 이미 처리된 requestId
-                return Ok(new { stageId, requestId = request.RequestId, alreadyEntered = true });
+                log = await FindEnterLogAsync(request.UserId, request.RequestId);
+
+                if (log == null)
+                {
+                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    return StatusCode(500, "Idempotency log missing after unique violation.");
+                }
+
+                return Ok(new EnterStageResponse(log));
             }
 
-            return Ok(new
-            {
-                stageId,
-                requestId = request.RequestId,
-                consumedStamina = stageData.NeedStamina,
-                user.Stamina,
-                user.LastStaminaUpdateTime,
-                user.CurrentStageId
-            });
+            return Ok(new EnterStageResponse(log));
+        }
+
+        private async Task<StageEnterLog?> FindEnterLogAsync(ulong userId, string requestId)
+        {
+            return await _db.StageEnterLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync();
         }
 
         // POST /stages/{stageId}/clear
@@ -83,6 +101,16 @@ namespace MiniServerProject.Controllers
                 return BadRequest("userId is required.");
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
+
+            var log = await FindClearLogAsync(request.UserId, request.RequestId);
+
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    return Conflict("RequestId already used for a different stage.");
+
+                return Ok(new ClearStageResponse(log));
+            }
 
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
             if (user == null)
@@ -107,26 +135,34 @@ namespace MiniServerProject.Controllers
                 user.ClearCurrentStage(stageId);
 
                 // 2) 멱등성 보장을 위해 로그 INSERT
-                _db.StageClearLogs.Add(new StageClearLog(user.UserId, stageId, request.RequestId, DateTime.UtcNow));
+                var now = DateTime.UtcNow;
+                log = new StageClearLog(user.UserId, stageId, request.RequestId, stage.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
+                _db.StageClearLogs.Add(log);
 
                 await _db.SaveChangesAsync();
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // 이미 처리된 requestId
-                return Ok(new { stageId, requestId = request.RequestId, alreadyCleared = true });
+                log = await FindClearLogAsync(request.UserId, request.RequestId);
+
+                if (log == null)
+                {
+                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    return StatusCode(500, "Idempotency log missing after unique violation.");
+                }
+
+                return Ok(new ClearStageResponse(log));
             }
 
-            return Ok(new
-            {
-                stageId,
-                rewardId = stage.RewardId,
-                rewardGold = reward.Gold,
-                rewardExp = reward.Exp,
-                user.Gold,
-                user.Exp,
-                user.CurrentStageId
-            });
+            return Ok(new ClearStageResponse(log));
+        }
+
+        private async Task<StageClearLog?> FindClearLogAsync(ulong userId, string requestId)
+        {
+            return await _db.StageClearLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync();
         }
 
         // POST /stages/{stageId}/give-up
@@ -140,6 +176,16 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
+            var log = await FindGiveUpLogAsync(request.UserId, request.RequestId);
+
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    return Conflict("RequestId already used for a different stage.");
+
+                return Ok(new GiveUpStageResponse(log));
+            }
+
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
             if (user == null)
                 return NotFound($"User not found. userId: {request.UserId}");
@@ -150,39 +196,48 @@ namespace MiniServerProject.Controllers
             // stageData가 삭제된 경우에 포기는 할 수 있도록 NotFound 처리 X
             var stage = TableHolder.GetTable<StageTable>().Get(stageId);
             ushort consumedStamina = stage?.NeedStamina ?? 0;
-            ushort recoverStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
+            ushort refundStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
 
             try
             {
                 var now = DateTime.UtcNow;
 
-                user.SetCurrentStage(null);
-                user.AddStamina(recoverStamina, now);
+                user.ClearCurrentStage(user.CurrentStageId);
+                user.AddStamina(refundStamina, now);
 
-                _db.StageGiveUpLogs.Add(new StageGiveUpLog(user.UserId, stageId, request.RequestId, now));
+                log = new StageGiveUpLog(user.UserId, stageId, request.RequestId, refundStamina, user.Stamina, now);
+
+                _db.StageGiveUpLogs.Add(log);
 
                 await _db.SaveChangesAsync();
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // 이미 처리된 requestId
-                return Ok(new { stageId, requestId = request.RequestId, alreadyGiveUp = true });
+                log = await FindGiveUpLogAsync(request.UserId, request.RequestId);
+
+                if (log == null)
+                {
+                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    return StatusCode(500, "Idempotency log missing after unique violation.");
+                }
+
+                return Ok(new GiveUpStageResponse(log));
             }
 
-            return Ok(new
-            {
-                stageId,
-                requestId = request.RequestId,
-                recoverStamina,
-                user.Stamina,
-                user.LastStaminaUpdateTime,
-                user.CurrentStageId
-            });
+            return Ok(new GiveUpStageResponse(log));
+        }
+
+        private async Task<StageGiveUpLog?> FindGiveUpLogAsync(ulong userId, string requestId)
+        {
+            return await _db.StageGiveUpLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync();
         }
 
         private static bool IsUniqueViolation(DbUpdateException ex)
         {
-            return ex.InnerException?.Message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) == true;
+            return ex.InnerException is MySqlConnector.MySqlException mysqlException && mysqlException.ErrorCode == MySqlConnector.MySqlErrorCode.DuplicateKeyEntry;
         }
     }
 }
