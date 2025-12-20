@@ -75,6 +75,18 @@ namespace MiniServerProject.Domain.Entities
             return Stamina >= amount;
         }
 
+        public bool AddStamina(ushort amount, DateTime currentDateTime)
+        {
+            UpdateStaminaByDateTime(currentDateTime);
+
+            // 기존에 or 회복으로 인해 최대치가 되었다면 회복 시작 시간을 현재 시간으로 세팅
+            if (Stamina >= MaxRecoverableStamina)
+                LastStaminaUpdateTime = currentDateTime;
+
+            Stamina += amount;
+            return true;
+        }
+
         public bool ConsumeStamina(ushort amount, DateTime currentDateTime)
         {
             UpdateStaminaByDateTime(currentDateTime);

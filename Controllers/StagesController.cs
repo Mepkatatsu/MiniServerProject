@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using MiniServerProject.Controllers.Request;
 using MiniServerProject.Domain.ServerLogs;
+using MiniServerProject.Domain.Shared.Table;
 using MiniServerProject.Domain.Table;
 using MiniServerProject.Infrastructure.Persistence;
 
@@ -112,6 +113,7 @@ namespace MiniServerProject.Controllers
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
+                // 이미 처리된 requestId
                 return Ok(new { stageId, requestId = request.RequestId, alreadyCleared = true });
             }
 
@@ -123,6 +125,57 @@ namespace MiniServerProject.Controllers
                 rewardExp = reward.Exp,
                 user.Gold,
                 user.Exp,
+                user.CurrentStageId
+            });
+        }
+
+        // POST /stages/{stageId}/give-up
+        [HttpPost("{stageId}/give-up")]
+        public async Task<IActionResult> GiveUp(string stageId, [FromBody] GiveUpStageRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(stageId))
+                return BadRequest("stageId is required.");
+            if (request.UserId == 0)
+                return BadRequest("userId is required.");
+            if (string.IsNullOrWhiteSpace(request.RequestId))
+                return BadRequest("requestId is required.");
+
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
+            if (user == null)
+                return NotFound($"User not found. userId: {request.UserId}");
+
+            if (user.CurrentStageId != stageId)
+                return BadRequest($"User is not in this stage. CurrentStageId: {user.CurrentStageId ?? "null"}, stageId: {stageId}");
+
+            // stageData가 삭제된 경우에 포기는 할 수 있도록 NotFound 처리 X
+            var stage = TableHolder.GetTable<StageTable>().Get(stageId);
+            ushort consumedStamina = stage?.NeedStamina ?? 0;
+            ushort recoverStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
+
+            try
+            {
+                var now = DateTime.UtcNow;
+
+                user.SetCurrentStage(null);
+                user.AddStamina(recoverStamina, now);
+
+                _db.StageGiveUpLogs.Add(new StageGiveUpLog(user.UserId, stageId, request.RequestId, now));
+
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // 이미 처리된 requestId
+                return Ok(new { stageId, requestId = request.RequestId, alreadyGiveUp = true });
+            }
+
+            return Ok(new
+            {
+                stageId,
+                requestId = request.RequestId,
+                recoverStamina,
+                user.Stamina,
+                user.LastStaminaUpdateTime,
                 user.CurrentStageId
             });
         }
