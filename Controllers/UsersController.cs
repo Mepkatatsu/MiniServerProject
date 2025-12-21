@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MiniServerProject.Application.Stages;
 using MiniServerProject.Application.Users;
 using MiniServerProject.Controllers.Request;
 
@@ -28,30 +27,16 @@ namespace MiniServerProject.Controllers
             var accountId = request.AccountId.Trim();
             var nickname = request.Nickname.Trim();
 
-            try
-            {
-                var resp = await _userService.CreateAsync(accountId, nickname, ct);
-                return Ok(resp);
-            }
-            catch (UserDomainException ex)
-            {
-                return ex.ToActionResult();
-            }
+            var resp = await _userService.CreateAsync(accountId, nickname, ct);
+            return Ok(resp);
         }
 
         // GET /users/{userId}
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetById(ulong userId, CancellationToken ct)
         {
-            try
-            {
-                var resp = await _userService.GetAsync(userId, ct);
-                return Ok(resp);
-            }
-            catch (UserDomainException ex)
-            {
-                return ex.ToActionResult();
-            }
+            var resp = await _userService.GetAsync(userId, ct);
+            return Ok(resp);
         }
     }
 }

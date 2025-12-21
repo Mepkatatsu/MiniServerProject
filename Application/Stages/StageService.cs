@@ -40,7 +40,7 @@ namespace MiniServerProject.Application.Stages
             if (log != null)
             {
                 if (log.StageId != stageId)
-                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+                    throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
                 response = new EnterStageResponse(log);
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
@@ -49,19 +49,19 @@ namespace MiniServerProject.Application.Stages
 
             // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
-                        ?? throw new StageDomainException(StageError.UserNotFound);
+                        ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != null)
-                throw new StageDomainException(StageError.UserAlreadyInStage);
+                throw new DomainException(ErrorType.UserAlreadyInStage);
 
             var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
-                            ?? throw new StageDomainException(StageError.StageNotFound);
+                            ?? throw new DomainException(ErrorType.StageNotFound);
 
             try
             {
                 var now = DateTime.UtcNow;
                 if (!user.ConsumeStamina(stageData.NeedStamina, now))
-                    throw new StageDomainException(StageError.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
+                    throw new DomainException(ErrorType.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
 
                 // 멱등성 보장을 위해 로그 INSERT
                 log = new StageEnterLog(user.UserId, stageId, request.RequestId, stageData.NeedStamina, user.Stamina, now);
@@ -82,7 +82,7 @@ namespace MiniServerProject.Application.Stages
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
                         request.UserId, request.RequestId, stageId);
 
-                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                    throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
                 var resp = new EnterStageResponse(log);
@@ -112,7 +112,7 @@ namespace MiniServerProject.Application.Stages
             if (log != null)
             {
                 if (log.StageId != stageId)
-                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+                    throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
                 response = new ClearStageResponse(log);
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
@@ -121,16 +121,16 @@ namespace MiniServerProject.Application.Stages
 
             // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
-                        ?? throw new StageDomainException(StageError.UserNotFound);
+                        ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
-                throw new StageDomainException(StageError.UserNotInThisStage, new { current = user.CurrentStageId});
+                throw new DomainException(ErrorType.UserNotInThisStage, new { current = user.CurrentStageId});
 
             var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
-                            ?? throw new StageDomainException(StageError.StageNotFound);
+                            ?? throw new DomainException(ErrorType.StageNotFound);
 
             var reward = TableHolder.GetTable<RewardTable>().Get(stageData.RewardId)
-                            ?? throw new StageDomainException(StageError.RewardNotFound);
+                            ?? throw new DomainException(ErrorType.RewardNotFound);
 
             try
             {
@@ -156,7 +156,7 @@ namespace MiniServerProject.Application.Stages
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
                         request.UserId, request.RequestId, stageId);
 
-                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                    throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
                 response = new ClearStageResponse(log);
@@ -186,7 +186,7 @@ namespace MiniServerProject.Application.Stages
             if (log != null)
             {
                 if (log.StageId != stageId)
-                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+                    throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
                 response = new GiveUpStageResponse(log);
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
@@ -195,10 +195,10 @@ namespace MiniServerProject.Application.Stages
 
             // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
-                        ?? throw new StageDomainException(StageError.UserNotFound);
+                        ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
-                throw new StageDomainException(StageError.UserNotInThisStage, new { current = user.CurrentStageId });
+                throw new DomainException(ErrorType.UserNotInThisStage, new { current = user.CurrentStageId });
 
             // stageData가 삭제된 경우에도 포기는 할 수 있도록 NotFound 처리 X
             var stage = TableHolder.GetTable<StageTable>().Get(stageId);
@@ -228,7 +228,7 @@ namespace MiniServerProject.Application.Stages
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
                         request.UserId, request.RequestId, stageId);
 
-                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                    throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
                 response = new GiveUpStageResponse(log);

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MiniServerProject.Api.Middleware;
 using MiniServerProject.Application.Stages;
 using MiniServerProject.Application.Users;
 using MiniServerProject.Infrastructure.Persistence;
@@ -48,6 +49,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthorization();
 

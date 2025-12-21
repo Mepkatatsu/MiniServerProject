@@ -25,15 +25,8 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            try
-            {
-                var resp = await _stageService.EnterAsync(stageId, request, ct);
-                return Ok(resp);
-            }
-            catch (StageDomainException ex)
-            {
-                return ex.ToActionResult();
-            }
+            var resp = await _stageService.EnterAsync(stageId, request, ct);
+            return Ok(resp);
         }
 
         [HttpPost("{stageId}/clear")]
@@ -46,15 +39,8 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            try
-            {
-                var resp = await _stageService.ClearAsync(stageId, request, ct);
-                return Ok(resp);
-            }
-            catch (StageDomainException ex)
-            {
-                return ex.ToActionResult();
-            }
+            var resp = await _stageService.ClearAsync(stageId, request, ct);
+            return Ok(resp);
         }
 
         [HttpPost("{stageId}/give-up")]
@@ -67,15 +53,8 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            try
-            {
-                var resp = await _stageService.GiveUpAsync(stageId, request, ct);
-                return Ok(resp);
-            }
-            catch (StageDomainException ex)
-            {
-                return ex.ToActionResult();
-            }
+            var resp = await _stageService.GiveUpAsync(stageId, request, ct);
+            return Ok(resp);
         }
     }
 }

@@ -70,7 +70,7 @@ namespace MiniServerProject.Application.Users
                         "user missing after unique violation. accountId={AccountId}",
                         accountId);
 
-                    throw new UserDomainException(UserError.UserMissingAfterUniqueViolation);
+                    throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
                 response = new UserResponse(user);
@@ -86,7 +86,7 @@ namespace MiniServerProject.Application.Users
         public async Task<UserResponse> GetAsync(ulong userId, CancellationToken ct)
         {
             var user = await FindUserAsync(userId, ct)
-                ?? throw new UserDomainException(UserError.UserNotFound);
+                ?? throw new DomainException(ErrorType.UserNotFound);
 
             var response = new UserResponse(user);
             return response;
