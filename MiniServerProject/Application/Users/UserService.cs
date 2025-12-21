@@ -2,18 +2,18 @@
 using MiniServerProject.Controllers.Response;
 using MiniServerProject.Domain.Entities;
 using MiniServerProject.Domain.ServerLogs;
+using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
-using MiniServerProject.Infrastructure.Redis;
 
 namespace MiniServerProject.Application.Users
 {
     public class UserService : IUserService
     {
         private readonly GameDbContext _db;
-        private readonly IdempotencyCache _idemCache;
+        private readonly IIdempotencyCache _idemCache;
         private readonly ILogger<UserService> _logger;
 
-        public UserService(GameDbContext db, IdempotencyCache idemCache, ILogger<UserService> logger)
+        public UserService(GameDbContext db, IIdempotencyCache idemCache, ILogger<UserService> logger)
         {
             _db = db;
             _idemCache = idemCache;
@@ -25,8 +25,14 @@ namespace MiniServerProject.Application.Users
             accountId = accountId.Trim();
             nickname = nickname.Trim();
 
+            if (string.IsNullOrWhiteSpace(accountId))
+                throw new DomainException(ErrorType.InvalidRequest, nameof(accountId));
+
+            if (string.IsNullOrWhiteSpace(nickname))
+                throw new DomainException(ErrorType.InvalidRequest, nameof(nickname));
+
             // 1) Redis 캐시 조회
-            var cacheKey = $"idem:users:{accountId}";
+            var cacheKey = IdempotencyKeyFactory.CreateUser(accountId);
             var response = await _idemCache.GetAsync<UserResponse>(cacheKey);
             if (response != null)
             {

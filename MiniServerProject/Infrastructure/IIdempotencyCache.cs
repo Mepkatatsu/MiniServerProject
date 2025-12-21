@@ -1,0 +1,8 @@
+﻿namespace MiniServerProject.Infrastructure
+{
+    public interface IIdempotencyCache
+    {
+        Task<T?> GetAsync<T>(string key);
+        Task SetAsync<T>(string key, T value, TimeSpan ttl);
+    }
+}

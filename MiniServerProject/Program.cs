@@ -2,6 +2,7 @@
 using MiniServerProject.Api.Middleware;
 using MiniServerProject.Application.Stages;
 using MiniServerProject.Application.Users;
+using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
 using MiniServerProject.Infrastructure.Redis;
 using StackExchange.Redis;
@@ -35,7 +36,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     return ConnectionMultiplexer.Connect(opt);
 });
 
-builder.Services.AddSingleton<IdempotencyCache>();
+builder.Services.AddSingleton<IIdempotencyCache, RedisCache>();
 builder.Services.AddScoped<IStageService, StageService>();
 builder.Services.AddScoped<IUserService, UserService>();
 

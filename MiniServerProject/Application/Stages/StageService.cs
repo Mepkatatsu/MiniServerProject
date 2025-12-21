@@ -4,18 +4,18 @@ using MiniServerProject.Controllers.Response;
 using MiniServerProject.Domain.ServerLogs;
 using MiniServerProject.Domain.Shared.Table;
 using MiniServerProject.Domain.Table;
+using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
-using MiniServerProject.Infrastructure.Redis;
 
 namespace MiniServerProject.Application.Stages
 {
     public sealed class StageService : IStageService
     {
         private readonly GameDbContext _db;
-        private readonly IdempotencyCache _idemCache;
+        private readonly IIdempotencyCache _idemCache;
         private readonly ILogger<StageService> _logger;
 
-        public StageService(GameDbContext db, IdempotencyCache idemCache, ILogger<StageService> logger)
+        public StageService(GameDbContext db, IIdempotencyCache idemCache, ILogger<StageService> logger)
         {
             _db = db;
             _idemCache = idemCache;
@@ -25,7 +25,7 @@ namespace MiniServerProject.Application.Stages
         public async Task<EnterStageResponse> EnterAsync(string stageId, EnterStageRequest request, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = $"idem:stages:enter:{request.UserId}:{request.RequestId}";
+            var cacheKey = IdempotencyKeyFactory.StageEnter(request.UserId, stageId, request.RequestId);
             var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
             if (response != null)
             {
@@ -98,7 +98,7 @@ namespace MiniServerProject.Application.Stages
         public async Task<ClearStageResponse> ClearAsync(string stageId, ClearStageRequest request, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = $"idem:stages:clear:{request.UserId}:{request.RequestId}";
+            var cacheKey = IdempotencyKeyFactory.StageClear(request.UserId, stageId, request.RequestId);
             var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
             if (response != null)
             {
@@ -172,7 +172,7 @@ namespace MiniServerProject.Application.Stages
         public async Task<GiveUpStageResponse> GiveUpAsync(string stageId, GiveUpStageRequest request, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = $"idem:stages:give-up:{request.UserId}:{request.RequestId}";
+            var cacheKey = IdempotencyKeyFactory.StageGiveUp(request.UserId, stageId, request.RequestId);
             var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
             if (response != null)
             {

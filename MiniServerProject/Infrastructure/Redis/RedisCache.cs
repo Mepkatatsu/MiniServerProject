@@ -3,12 +3,12 @@ using System.Text.Json;
 
 namespace MiniServerProject.Infrastructure.Redis
 {
-    public sealed class IdempotencyCache
+    public sealed class RedisCache : IIdempotencyCache
     {
         private readonly IDatabase _redisDb;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-        public IdempotencyCache(IConnectionMultiplexer mux)
+        public RedisCache(IConnectionMultiplexer mux)
         {
             _redisDb = mux.GetDatabase();
         }

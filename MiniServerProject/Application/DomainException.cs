@@ -2,6 +2,7 @@
 {
     public enum ErrorType
     {
+        InvalidRequest,
         UserNotFound,
         StageNotFound,
         RewardNotFound,

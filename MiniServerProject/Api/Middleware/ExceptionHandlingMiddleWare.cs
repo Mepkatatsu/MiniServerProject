@@ -43,6 +43,7 @@ namespace MiniServerProject.Api.Middleware
         {
             var (status, message) = ex.ErrorType switch
             {
+                ErrorType.InvalidRequest => (StatusCodes.Status400BadRequest, "Request is invalid."),
                 ErrorType.UserNotFound => (StatusCodes.Status404NotFound, "User not found."),
                 ErrorType.StageNotFound => (StatusCodes.Status404NotFound, "Stage not found."),
                 ErrorType.RewardNotFound => (StatusCodes.Status404NotFound, "Reward not found."),
