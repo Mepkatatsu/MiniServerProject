@@ -9,6 +9,7 @@ namespace MiniServerProject.Infrastructure.Persistence
         public GameDbContext(DbContextOptions<GameDbContext> options) : base(options) { }
 
         public DbSet<User> Users => Set<User>();
+        public DbSet<UserCreateLog> UserCreateLogs => Set<UserCreateLog>();
         public DbSet<StageEnterLog> StageEnterLogs => Set<StageEnterLog>();
         public DbSet<StageClearLog> StageClearLogs => Set<StageClearLog>();
         public DbSet<StageGiveUpLog> StageGiveUpLogs => Set<StageGiveUpLog>();

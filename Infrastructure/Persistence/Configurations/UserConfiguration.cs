@@ -10,10 +10,17 @@ namespace MiniServerProject.Infrastructure.Persistence.Configurations
         {
             entity.ToTable("users");
 
+            entity.HasKey(x => x.UserId);
             entity.Property(x => x.UserId)
                 .HasColumnType("bigint unsigned")
                 .ValueGeneratedOnAdd();
-            entity.HasKey(x => x.UserId);
+
+            entity.Property(x => x.AccountId)
+                .HasMaxLength(32)
+                .IsRequired();
+
+            entity.HasIndex(x => x.AccountId)
+                .IsUnique();
 
             entity.Property(x => x.Nickname)
                 .HasMaxLength(32)

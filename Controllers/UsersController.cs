@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MiniServerProject.Application.Stages;
+using MiniServerProject.Application.Users;
 using MiniServerProject.Controllers.Request;
-using MiniServerProject.Domain.Entities;
-using MiniServerProject.Infrastructure.Persistence;
 
 namespace MiniServerProject.Controllers
 {
@@ -10,66 +9,49 @@ namespace MiniServerProject.Controllers
     [Route("users")]
     public sealed class UsersController : ControllerBase
     {
-        private readonly GameDbContext _db;
+        private readonly IUserService _userService;
 
-        public UsersController(GameDbContext db)
+        public UsersController(IUserService userService)
         {
-            _db = db;
+            _userService = userService;
         }
 
         // POST /users
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
+        public async Task<IActionResult> Create([FromBody] CreateUserRequest request, CancellationToken ct)
         {
+            if (string.IsNullOrWhiteSpace(request.AccountId))
+                return BadRequest("AccountId is required.");
             if (string.IsNullOrWhiteSpace(request.Nickname))
                 return BadRequest("Nickname is required.");
 
-            var user = new User(request.Nickname);
+            var accountId = request.AccountId.Trim();
+            var nickname = request.Nickname.Trim();
 
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = user.UserId },
-                new
-                {
-                    user.UserId,
-                    user.Nickname,
-                    user.Level,
-                    user.Stamina,
-                    user.Gold,
-                    user.Exp,
-                    user.CreateDateTime,
-                    user.LastStaminaUpdateTime,
-                    user.CurrentStageId
-                }
-            );
+            try
+            {
+                var resp = await _userService.CreateAsync(accountId, nickname, ct);
+                return Ok(resp);
+            }
+            catch (UserDomainException ex)
+            {
+                return ex.ToActionResult();
+            }
         }
 
-        // GET /users/{id}
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(ulong id)
+        // GET /users/{userId}
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetById(ulong userId, CancellationToken ct)
         {
-            var user = await _db.Users
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.UserId == id);
-
-            if (user == null)
-                return NotFound($"User not found. userId: {id}");
-
-            return Ok(new
+            try
             {
-                user.UserId,
-                user.Nickname,
-                user.Level,
-                user.Stamina,
-                user.Gold,
-                user.Exp,
-                user.CreateDateTime,
-                user.LastStaminaUpdateTime,
-                user.CurrentStageId
-            });
+                var resp = await _userService.GetAsync(userId, ct);
+                return Ok(resp);
+            }
+            catch (UserDomainException ex)
+            {
+                return ex.ToActionResult();
+            }
         }
     }
 }

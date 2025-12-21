@@ -5,6 +5,7 @@ namespace MiniServerProject.Domain.Entities
 {
     public class User
     {
+        public string AccountId { get; private set; } = null!;
         public ulong UserId { get; private set; }
         public string Nickname { get; private set; } = null!;
 
@@ -22,8 +23,10 @@ namespace MiniServerProject.Domain.Entities
 
         protected User() { }
 
-        public User(string nickname)
+        public User(string accountId, string nickname)
         {
+            if (string.IsNullOrWhiteSpace(accountId))
+                throw new ArgumentException("AccountId is required");
             if (string.IsNullOrWhiteSpace(nickname))
                 throw new ArgumentException("Nickname is required");
 
@@ -31,6 +34,7 @@ namespace MiniServerProject.Domain.Entities
 
             ushort initialStamina = TableHolder.GetTable<StaminaTable>().Get(Level)?.MaxRecoverableStamina ?? 0;
 
+            AccountId = accountId;
             Nickname = nickname.Trim();
             Stamina = initialStamina;
             CreateDateTime = DateTime.UtcNow;
