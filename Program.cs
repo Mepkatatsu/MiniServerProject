@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using MiniServerProject.Application.Stages;
 using MiniServerProject.Infrastructure.Persistence;
 using MiniServerProject.Infrastructure.Redis;
 using StackExchange.Redis;
@@ -33,6 +34,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 builder.Services.AddSingleton<IdempotencyCache>();
+builder.Services.AddScoped<IStageService, StageService>();
 
 var app = builder.Build();
 

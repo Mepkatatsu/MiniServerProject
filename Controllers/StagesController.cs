@@ -1,12 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using MiniServerProject.Application.Stages;
 using MiniServerProject.Controllers.Request;
-using MiniServerProject.Controllers.Response;
-using MiniServerProject.Domain.ServerLogs;
-using MiniServerProject.Domain.Shared.Table;
-using MiniServerProject.Domain.Table;
-using MiniServerProject.Infrastructure.Persistence;
-using MiniServerProject.Infrastructure.Redis;
 
 namespace MiniServerProject.Controllers
 {
@@ -14,20 +8,15 @@ namespace MiniServerProject.Controllers
     [Route("stages")]
     public sealed class StagesController : ControllerBase
     {
-        private readonly GameDbContext _db;
-        private readonly IdempotencyCache _idemCache;
-        private readonly ILogger<StagesController> _logger;
+        private readonly IStageService _stageService;
 
-        public StagesController(GameDbContext db, IdempotencyCache idemCache, ILogger<StagesController> logger)
+        public StagesController(IStageService stageService)
         {
-            _db = db;
-            _idemCache = idemCache;
-            _logger = logger;
+            _stageService = stageService;
         }
 
-        // POST stages/{stageId}/enter
         [HttpPost("{stageId}/enter")]
-        public async Task<IActionResult> Enter(string stageId, [FromBody] EnterStageRequest request)
+        public async Task<IActionResult> Enter(string stageId, [FromBody] EnterStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
                 return BadRequest("stageId is required.");
@@ -36,89 +25,19 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var cacheKey = $"idem:stages:enter:{request.UserId}:{request.RequestId}";
-
-            var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
-            if (response != null)
-            {
-                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
-                    request.UserId, request.RequestId, cacheKey);
-                return Ok(response);
-            }
-
-            var log = await FindEnterLogAsync(request.UserId, request.RequestId);
-
-            if (log != null)
-            {
-                if (log.StageId != stageId)
-                    return Conflict("RequestId already used for a different stage.");
-
-                response = new EnterStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
-            }
-
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
-            if (user == null)
-                return NotFound($"User not found. UserId: {request.UserId}");
-
-            if (user.CurrentStageId != null)
-                return BadRequest($"User is already in a stage. CurrentStageId: {user.CurrentStageId}");
-
-            var stageData = TableHolder.GetTable<StageTable>().Get(stageId);
-            if (stageData == null)
-                return NotFound($"Stage not found. stageId: {stageId}");
-
             try
             {
-                // 1) 스태미너 체크/소모
-                var now = DateTime.UtcNow;
-                if (!user.ConsumeStamina(stageData.NeedStamina, now))
-                    return BadRequest(new { error = "NotEnoughStamina", current = user.Stamina, required = stageData.NeedStamina });
-
-                // 2) 멱등성 보장을 위해 로그 INSERT
-                log = new StageEnterLog(user.UserId, stageId, request.RequestId, stageData.NeedStamina, user.Stamina, now);
-                _db.StageEnterLogs.Add(log);
-
-                user.SetCurrentStage(stageId);
-
-                await _db.SaveChangesAsync();
+                var resp = await _stageService.EnterAsync(stageId, request, ct);
+                return Ok(resp);
             }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            catch (StageDomainException ex)
             {
-                log = await FindEnterLogAsync(request.UserId, request.RequestId);
-
-                if (log == null)
-                {
-                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
-                        request.UserId, request.RequestId);
-                    return StatusCode(500, "Idempotency log missing after unique violation.");
-                }
-
-                response = new EnterStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
+                return ex.ToActionResult();
             }
-
-            response = new EnterStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-            return Ok(response);
         }
 
-        private async Task<StageEnterLog?> FindEnterLogAsync(ulong userId, string requestId)
-        {
-            return await _db.StageEnterLogs
-                .AsNoTracking()
-                .Where(x => x.UserId == userId && x.RequestId == requestId)
-                .FirstOrDefaultAsync();
-        }
-
-        // POST /stages/{stageId}/clear
         [HttpPost("{stageId}/clear")]
-        public async Task<IActionResult> Clear(string stageId, [FromBody] ClearStageRequest request)
+        public async Task<IActionResult> Clear(string stageId, [FromBody] ClearStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
                 return BadRequest("stageId is required.");
@@ -127,92 +46,19 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var cacheKey = $"idem:stages:clear:{request.UserId}:{request.RequestId}";
-
-            var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
-            if (response != null)
-            {
-                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
-                    request.UserId, request.RequestId, cacheKey);
-                return Ok(response);
-            }
-
-            var log = await FindClearLogAsync(request.UserId, request.RequestId);
-
-            if (log != null)
-            {
-                if (log.StageId != stageId)
-                    return Conflict("RequestId already used for a different stage.");
-
-                response = new ClearStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
-            }
-
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
-            if (user == null)
-                return NotFound($"User not found. userId: {request.UserId}");
-
-            if (user.CurrentStageId != stageId)
-                return BadRequest($"User is not in this stage. CurrentStageId: {user.CurrentStageId ?? "null"}, stageId: {stageId}");
-
-            var stage = TableHolder.GetTable<StageTable>().Get(stageId);
-            if (stage == null)
-                return NotFound($"Stage not found. stageId: {stageId}");
-
-            var reward = TableHolder.GetTable<RewardTable>().Get(stage.RewardId);
-            if (reward == null)
-                return NotFound($"Reward not found. rewardId: {stage.RewardId}");
-
             try
             {
-                // 1) 보상 지급 + 상태 전이
-                user.AddGold(reward.Gold);
-                user.AddExp(reward.Exp);
-                user.ClearCurrentStage(stageId);
-
-                // 2) 멱등성 보장을 위해 로그 INSERT
-                var now = DateTime.UtcNow;
-                log = new StageClearLog(user.UserId, stageId, request.RequestId, stage.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
-                _db.StageClearLogs.Add(log);
-
-                await _db.SaveChangesAsync();
+                var resp = await _stageService.ClearAsync(stageId, request, ct);
+                return Ok(resp);
             }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            catch (StageDomainException ex)
             {
-                log = await FindClearLogAsync(request.UserId, request.RequestId);
-
-                if (log == null)
-                {
-                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
-                        request.UserId, request.RequestId);
-                    return StatusCode(500, "Idempotency log missing after unique violation.");
-                }
-
-                response = new ClearStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
+                return ex.ToActionResult();
             }
-
-            response = new ClearStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-            return Ok(response);
         }
 
-        private async Task<StageClearLog?> FindClearLogAsync(ulong userId, string requestId)
-        {
-            return await _db.StageClearLogs
-                .AsNoTracking()
-                .Where(x => x.UserId == userId && x.RequestId == requestId)
-                .FirstOrDefaultAsync();
-        }
-
-        // POST /stages/{stageId}/give-up
         [HttpPost("{stageId}/give-up")]
-        public async Task<IActionResult> GiveUp(string stageId, [FromBody] GiveUpStageRequest request)
+        public async Task<IActionResult> GiveUp(string stageId, [FromBody] GiveUpStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
                 return BadRequest("stageId is required.");
@@ -221,88 +67,15 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var cacheKey = $"idem:stages:give-up:{request.UserId}:{request.RequestId}";
-
-            var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
-            if (response != null)
-            {
-                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
-                    request.UserId, request.RequestId, cacheKey);
-                return Ok(response);
-            }
-
-            var log = await FindGiveUpLogAsync(request.UserId, request.RequestId);
-
-            if (log != null)
-            {
-                if (log.StageId != stageId)
-                    return Conflict("RequestId already used for a different stage.");
-
-                response = new GiveUpStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
-            }
-
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId);
-            if (user == null)
-                return NotFound($"User not found. userId: {request.UserId}");
-
-            if (user.CurrentStageId != stageId)
-                return BadRequest($"User is not in this stage. CurrentStageId: {user.CurrentStageId ?? "null"}, stageId: {stageId}");
-
-            // stageData가 삭제된 경우에 포기는 할 수 있도록 NotFound 처리 X
-            var stage = TableHolder.GetTable<StageTable>().Get(stageId);
-            ushort consumedStamina = stage?.NeedStamina ?? 0;
-            ushort refundStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
-
             try
             {
-                var now = DateTime.UtcNow;
-
-                user.ClearCurrentStage(user.CurrentStageId);
-                user.AddStamina(refundStamina, now);
-
-                log = new StageGiveUpLog(user.UserId, stageId, request.RequestId, refundStamina, user.Stamina, now);
-
-                _db.StageGiveUpLogs.Add(log);
-
-                await _db.SaveChangesAsync();
+                var resp = await _stageService.GiveUpAsync(stageId, request, ct);
+                return Ok(resp);
             }
-            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            catch (StageDomainException ex)
             {
-                log = await FindGiveUpLogAsync(request.UserId, request.RequestId);
-
-                if (log == null)
-                {
-                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
-                        request.UserId, request.RequestId);
-                    return StatusCode(500, "Idempotency log missing after unique violation.");
-                }
-
-                response = new GiveUpStageResponse(log);
-                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-                return Ok(response);
+                return ex.ToActionResult();
             }
-
-            response = new GiveUpStageResponse(log);
-            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
-
-            return Ok(response);
-        }
-
-        private async Task<StageGiveUpLog?> FindGiveUpLogAsync(ulong userId, string requestId)
-        {
-            return await _db.StageGiveUpLogs
-                .AsNoTracking()
-                .Where(x => x.UserId == userId && x.RequestId == requestId)
-                .FirstOrDefaultAsync();
-        }
-
-        private static bool IsUniqueViolation(DbUpdateException ex)
-        {
-            return ex.InnerException is MySqlConnector.MySqlException mysqlException && mysqlException.ErrorCode == MySqlConnector.MySqlErrorCode.DuplicateKeyEntry;
         }
     }
 }

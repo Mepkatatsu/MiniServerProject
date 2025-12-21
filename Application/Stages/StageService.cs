@@ -1,0 +1,274 @@
+﻿using Microsoft.EntityFrameworkCore;
+using MiniServerProject.Controllers.Request;
+using MiniServerProject.Controllers.Response;
+using MiniServerProject.Domain.ServerLogs;
+using MiniServerProject.Domain.Shared.Table;
+using MiniServerProject.Domain.Table;
+using MiniServerProject.Infrastructure.Persistence;
+using MiniServerProject.Infrastructure.Redis;
+
+namespace MiniServerProject.Application.Stages
+{
+    public sealed class StageService : IStageService
+    {
+        private readonly GameDbContext _db;
+        private readonly IdempotencyCache _idemCache;
+        private readonly ILogger<StageService> _logger;
+
+        public StageService(GameDbContext db, IdempotencyCache idemCache, ILogger<StageService> logger)
+        {
+            _db = db;
+            _idemCache = idemCache;
+            _logger = logger;
+        }
+
+        public async Task<EnterStageResponse> EnterAsync(string stageId, EnterStageRequest request, CancellationToken ct)
+        {
+            // 1) Redis 캐시 조회
+            var cacheKey = $"idem:stages:enter:{request.UserId}:{request.RequestId}";
+            var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
+            if (response != null)
+            {
+                _logger.LogInformation(
+                    "Idempotent response served from Redis. userId={UserId} requestId={RequestId} stageId={StageId} cacheKey={CacheKey}",
+                    request.UserId, request.RequestId, stageId, cacheKey);
+                return response;
+            }
+
+            // 2) DB log 선조회
+            var log = await FindEnterLogAsync(request.UserId, request.RequestId, ct);
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+
+                response = new EnterStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+                return response;
+            }
+
+            // 3) 실제 처리
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+                        ?? throw new StageDomainException(StageError.UserNotFound);
+
+            if (user.CurrentStageId != null)
+                throw new StageDomainException(StageError.UserAlreadyInStage);
+
+            var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
+                            ?? throw new StageDomainException(StageError.StageNotFound);
+
+            try
+            {
+                var now = DateTime.UtcNow;
+                if (!user.ConsumeStamina(stageData.NeedStamina, now))
+                    throw new StageDomainException(StageError.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
+
+                // 멱등성 보장을 위해 로그 INSERT
+                log = new StageEnterLog(user.UserId, stageId, request.RequestId, stageData.NeedStamina, user.Stamina, now);
+                _db.StageEnterLogs.Add(log);
+
+                user.SetCurrentStage(stageId);
+
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // 이미 처리된 요청
+                log = await FindEnterLogAsync(request.UserId, request.RequestId, ct);
+                if (log == null)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
+                        request.UserId, request.RequestId, stageId);
+
+                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                }
+
+                var resp = new EnterStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, resp, TimeSpan.FromMinutes(10));
+                return resp;
+            }
+
+            response = new EnterStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+            return response;
+        }
+
+        public async Task<ClearStageResponse> ClearAsync(string stageId, ClearStageRequest request, CancellationToken ct)
+        {
+            // 1) Redis 캐시 조회
+            var cacheKey = $"idem:stages:clear:{request.UserId}:{request.RequestId}";
+            var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
+            if (response != null)
+            {
+                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
+                    request.UserId, request.RequestId, cacheKey);
+                return response;
+            }
+
+            // 2) DB log 선조회
+            var log = await FindClearLogAsync(request.UserId, request.RequestId, ct);
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+
+                response = new ClearStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+                return response;
+            }
+
+            // 3) 실제 처리
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+                        ?? throw new StageDomainException(StageError.UserNotFound);
+
+            if (user.CurrentStageId != stageId)
+                throw new StageDomainException(StageError.UserNotInThisStage, new { current = user.CurrentStageId});
+
+            var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
+                            ?? throw new StageDomainException(StageError.StageNotFound);
+
+            var reward = TableHolder.GetTable<RewardTable>().Get(stageData.RewardId)
+                            ?? throw new StageDomainException(StageError.RewardNotFound);
+
+            try
+            {
+                user.AddGold(reward.Gold);
+                user.AddExp(reward.Exp);
+                user.ClearCurrentStage(stageId);
+
+                // 멱등성 보장을 위해 로그 INSERT
+                var now = DateTime.UtcNow;
+                log = new StageClearLog(user.UserId, stageId, request.RequestId, stageData.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
+                _db.StageClearLogs.Add(log);
+
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // 이미 처리된 요청
+                log = await FindClearLogAsync(request.UserId, request.RequestId, ct);
+                if (log == null)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
+                        request.UserId, request.RequestId, stageId);
+
+                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                }
+
+                response = new ClearStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+                return response;
+            }
+
+            response = new ClearStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+            return response;
+        }
+
+        public async Task<GiveUpStageResponse> GiveUpAsync(string stageId, GiveUpStageRequest request, CancellationToken ct)
+        {
+            // 1) Redis 캐시 조회
+            var cacheKey = $"idem:stages:give-up:{request.UserId}:{request.RequestId}";
+            var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
+            if (response != null)
+            {
+                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
+                    request.UserId, request.RequestId, cacheKey);
+                return response;
+            }
+
+            // 2) DB log 선조회
+            var log = await FindGiveUpLogAsync(request.UserId, request.RequestId, ct);
+            if (log != null)
+            {
+                if (log.StageId != stageId)
+                    throw new StageDomainException(StageError.RequestIdUsedForDifferentStage);
+
+                response = new GiveUpStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+                return response;
+            }
+
+            // 3) 실제 처리
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+                        ?? throw new StageDomainException(StageError.UserNotFound);
+
+            if (user.CurrentStageId != stageId)
+                throw new StageDomainException(StageError.UserNotInThisStage, new { current = user.CurrentStageId });
+
+            // stageData가 삭제된 경우에도 포기는 할 수 있도록 NotFound 처리 X
+            var stage = TableHolder.GetTable<StageTable>().Get(stageId);
+            ushort consumedStamina = stage?.NeedStamina ?? 0;
+            ushort refundStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
+
+            try
+            {
+                var now = DateTime.UtcNow;
+                user.ClearCurrentStage(user.CurrentStageId);
+                user.AddStamina(refundStamina, now);
+
+                // 멱등성 보장을 위해 로그 INSERT
+                log = new StageGiveUpLog(user.UserId, stageId, request.RequestId, refundStamina, user.Stamina, now);
+                _db.StageGiveUpLogs.Add(log);
+
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex) when (IsUniqueViolation(ex))
+            {
+                // 이미 처리된 요청
+                log = await FindGiveUpLogAsync(request.UserId, request.RequestId, ct);
+                if (log == null)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
+                        request.UserId, request.RequestId, stageId);
+
+                    throw new StageDomainException(StageError.IdempotencyLogMissingAfterUniqueViolation);
+                }
+
+                response = new GiveUpStageResponse(log);
+                await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+                return response;
+            }
+
+            response = new GiveUpStageResponse(log);
+            await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
+            return response;
+        }
+
+        private async Task<StageEnterLog?> FindEnterLogAsync(ulong userId, string requestId, CancellationToken ct)
+        {
+            return await _db.StageEnterLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        private async Task<StageClearLog?> FindClearLogAsync(ulong userId, string requestId, CancellationToken ct)
+        {
+            return await _db.StageClearLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        private async Task<StageGiveUpLog?> FindGiveUpLogAsync(ulong userId, string requestId, CancellationToken ct)
+        {
+            return await _db.StageGiveUpLogs
+                .AsNoTracking()
+                .Where(x => x.UserId == userId && x.RequestId == requestId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        private static bool IsUniqueViolation(DbUpdateException ex)
+        {
+            return ex.InnerException is MySqlConnector.MySqlException mysqlException
+                && mysqlException.ErrorCode == MySqlConnector.MySqlErrorCode.DuplicateKeyEntry;
+        }
+    }
+}
