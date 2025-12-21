@@ -16,11 +16,13 @@ namespace MiniServerProject.Controllers
     {
         private readonly GameDbContext _db;
         private readonly IdempotencyCache _idemCache;
+        private readonly ILogger<StagesController> _logger;
 
-        public StagesController(GameDbContext db, IdempotencyCache idemCache)
+        public StagesController(GameDbContext db, IdempotencyCache idemCache, ILogger<StagesController> logger)
         {
             _db = db;
             _idemCache = idemCache;
+            _logger = logger;
         }
 
         // POST stages/{stageId}/enter
@@ -39,7 +41,8 @@ namespace MiniServerProject.Controllers
             var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
             if (response != null)
             {
-                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
+                    request.UserId, request.RequestId, cacheKey);
                 return Ok(response);
             }
 
@@ -88,7 +91,8 @@ namespace MiniServerProject.Controllers
 
                 if (log == null)
                 {
-                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
+                        request.UserId, request.RequestId);
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
@@ -128,7 +132,8 @@ namespace MiniServerProject.Controllers
             var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
             if (response != null)
             {
-                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
+                    request.UserId, request.RequestId, cacheKey);
                 return Ok(response);
             }
 
@@ -180,7 +185,8 @@ namespace MiniServerProject.Controllers
 
                 if (log == null)
                 {
-                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
+                        request.UserId, request.RequestId);
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
@@ -220,7 +226,8 @@ namespace MiniServerProject.Controllers
             var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
             if (response != null)
             {
-                Console.WriteLine($"Redis HIT! cacheKey: {cacheKey}");
+                _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
+                    request.UserId, request.RequestId, cacheKey);
                 return Ok(response);
             }
 
@@ -268,7 +275,8 @@ namespace MiniServerProject.Controllers
 
                 if (log == null)
                 {
-                    // TODO: 특별히 이상한 상황이라 서버 로그를 남기면 좋을 듯
+                    _logger.LogError(ex, "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId}",
+                        request.UserId, request.RequestId);
                     return StatusCode(500, "Idempotency log missing after unique violation.");
                 }
 
