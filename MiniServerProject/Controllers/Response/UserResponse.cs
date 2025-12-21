@@ -15,10 +15,7 @@ namespace MiniServerProject.Controllers.Response
         public string? CurrentStageId { get; set; }
 
         // Deserialize용 생성자
-        public UserResponse()
-        {
-
-        }
+        protected UserResponse() { }
 
         public UserResponse(User user)
         {

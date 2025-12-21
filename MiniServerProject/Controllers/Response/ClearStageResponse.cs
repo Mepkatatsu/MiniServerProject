@@ -12,11 +12,7 @@ namespace MiniServerProject.Controllers.Response
         public ulong AfterGold { get; set; }
         public ulong AfterExp { get; set; }
 
-        // Deserialize용 생성자
-        public ClearStageResponse()
-        {
-
-        }
+        protected ClearStageResponse() { }
 
         public ClearStageResponse(StageClearLog stageClearLog)
         {
