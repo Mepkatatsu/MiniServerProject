@@ -25,7 +25,7 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var resp = await _stageService.EnterAsync(stageId, request, ct);
+            var resp = await _stageService.EnterAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
         }
 
@@ -39,7 +39,7 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var resp = await _stageService.ClearAsync(stageId, request, ct);
+            var resp = await _stageService.ClearAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
         }
 
@@ -53,7 +53,7 @@ namespace MiniServerProject.Controllers
             if (string.IsNullOrWhiteSpace(request.RequestId))
                 return BadRequest("requestId is required.");
 
-            var resp = await _stageService.GiveUpAsync(stageId, request, ct);
+            var resp = await _stageService.GiveUpAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
         }
     }

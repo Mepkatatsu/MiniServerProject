@@ -10,7 +10,7 @@ namespace MiniServerProject.Controllers.Response
         public ushort AfterStamina { get; set; }
 
         // Deserialize용 생성자
-        protected GiveUpStageResponse() { }
+        public GiveUpStageResponse() { }
 
         public GiveUpStageResponse(StageGiveUpLog stageGiveUpLog)
         {

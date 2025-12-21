@@ -1,4 +1,5 @@
-﻿using MiniServerProject.Domain.Shared.Table;
+﻿using MiniServerProject.Controllers.Response;
+using MiniServerProject.Domain.Shared.Table;
 using MiniServerProject.Domain.Table;
 
 namespace MiniServerProject.Domain.Entities
@@ -22,6 +23,20 @@ namespace MiniServerProject.Domain.Entities
         private ushort MaxRecoverableStamina => TableHolder.GetTable<StaminaTable>().Get(Level)?.MaxRecoverableStamina ?? 0;
 
         protected User() { }
+
+        public User(string accountId, UserResponse userResponse)
+        {
+            AccountId = accountId;
+            UserId = userResponse.UserId;
+            Nickname = userResponse.Nickname;
+            Level = userResponse.Level;
+            Stamina = userResponse.Stamina;
+            Gold = userResponse.Gold;
+            Exp = userResponse.Exp;
+            CreateDateTime = userResponse.CreateDateTime;
+            LastStaminaUpdateTime = userResponse.LastStaminaUpdateTime;
+            CurrentStageId = userResponse.CurrentStageId;
+        }
 
         public User(string accountId, string nickname)
         {

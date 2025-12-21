@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MiniServerProject.Controllers.Request;
 using MiniServerProject.Controllers.Response;
 using MiniServerProject.Domain.ServerLogs;
 using MiniServerProject.Domain.Shared.Table;
@@ -22,21 +21,21 @@ namespace MiniServerProject.Application.Stages
             _logger = logger;
         }
 
-        public async Task<EnterStageResponse> EnterAsync(string stageId, EnterStageRequest request, CancellationToken ct)
+        public async Task<EnterStageResponse> EnterAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = IdempotencyKeyFactory.StageEnter(request.UserId, stageId, request.RequestId);
+            var cacheKey = IdempotencyKeyFactory.StageEnter(userId, stageId, requestId);
             var response = await _idemCache.GetAsync<EnterStageResponse>(cacheKey);
             if (response != null)
             {
                 _logger.LogInformation(
                     "Idempotent response served from Redis. userId={UserId} requestId={RequestId} stageId={StageId} cacheKey={CacheKey}",
-                    request.UserId, request.RequestId, stageId, cacheKey);
+                    userId, requestId, stageId, cacheKey);
                 return response;
             }
 
             // 2) DB log 선조회
-            var log = await FindEnterLogAsync(request.UserId, request.RequestId, ct);
+            var log = await FindEnterLogAsync(userId, requestId, ct);
             if (log != null)
             {
                 if (log.StageId != stageId)
@@ -48,7 +47,7 @@ namespace MiniServerProject.Application.Stages
             }
 
             // 3) 실제 처리
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != null)
@@ -64,7 +63,7 @@ namespace MiniServerProject.Application.Stages
                     throw new DomainException(ErrorType.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
 
                 // 멱등성 보장을 위해 로그 INSERT
-                log = new StageEnterLog(user.UserId, stageId, request.RequestId, stageData.NeedStamina, user.Stamina, now);
+                log = new StageEnterLog(user.UserId, stageId, requestId, stageData.NeedStamina, user.Stamina, now);
                 _db.StageEnterLogs.Add(log);
 
                 user.SetCurrentStage(stageId);
@@ -74,13 +73,13 @@ namespace MiniServerProject.Application.Stages
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
                 // 이미 처리된 요청
-                log = await FindEnterLogAsync(request.UserId, request.RequestId, ct);
+                log = await FindEnterLogAsync(userId, requestId, ct);
                 if (log == null)
                 {
                     _logger.LogError(
                         ex,
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
-                        request.UserId, request.RequestId, stageId);
+                        userId, requestId, stageId);
 
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
@@ -95,20 +94,20 @@ namespace MiniServerProject.Application.Stages
             return response;
         }
 
-        public async Task<ClearStageResponse> ClearAsync(string stageId, ClearStageRequest request, CancellationToken ct)
+        public async Task<ClearStageResponse> ClearAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = IdempotencyKeyFactory.StageClear(request.UserId, stageId, request.RequestId);
+            var cacheKey = IdempotencyKeyFactory.StageClear(userId, stageId, requestId);
             var response = await _idemCache.GetAsync<ClearStageResponse>(cacheKey);
             if (response != null)
             {
                 _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
-                    request.UserId, request.RequestId, cacheKey);
+                    userId, requestId, cacheKey);
                 return response;
             }
 
             // 2) DB log 선조회
-            var log = await FindClearLogAsync(request.UserId, request.RequestId, ct);
+            var log = await FindClearLogAsync(userId, requestId, ct);
             if (log != null)
             {
                 if (log.StageId != stageId)
@@ -120,7 +119,7 @@ namespace MiniServerProject.Application.Stages
             }
 
             // 3) 실제 처리
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
@@ -140,7 +139,7 @@ namespace MiniServerProject.Application.Stages
 
                 // 멱등성 보장을 위해 로그 INSERT
                 var now = DateTime.UtcNow;
-                log = new StageClearLog(user.UserId, stageId, request.RequestId, stageData.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
+                log = new StageClearLog(user.UserId, stageId, requestId, stageData.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
                 _db.StageClearLogs.Add(log);
 
                 await _db.SaveChangesAsync(ct);
@@ -148,13 +147,13 @@ namespace MiniServerProject.Application.Stages
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
                 // 이미 처리된 요청
-                log = await FindClearLogAsync(request.UserId, request.RequestId, ct);
+                log = await FindClearLogAsync(userId, requestId, ct);
                 if (log == null)
                 {
                     _logger.LogError(
                         ex,
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
-                        request.UserId, request.RequestId, stageId);
+                        userId, requestId, stageId);
 
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
@@ -169,20 +168,20 @@ namespace MiniServerProject.Application.Stages
             return response;
         }
 
-        public async Task<GiveUpStageResponse> GiveUpAsync(string stageId, GiveUpStageRequest request, CancellationToken ct)
+        public async Task<GiveUpStageResponse> GiveUpAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
         {
             // 1) Redis 캐시 조회
-            var cacheKey = IdempotencyKeyFactory.StageGiveUp(request.UserId, stageId, request.RequestId);
+            var cacheKey = IdempotencyKeyFactory.StageGiveUp(userId, stageId, requestId);
             var response = await _idemCache.GetAsync<GiveUpStageResponse>(cacheKey);
             if (response != null)
             {
                 _logger.LogInformation("Idempotent response served from Redis. userId={userId}, requestId={request.RequestId}, cacheKey={cacheKey}",
-                    request.UserId, request.RequestId, cacheKey);
+                    userId, requestId, cacheKey);
                 return response;
             }
 
             // 2) DB log 선조회
-            var log = await FindGiveUpLogAsync(request.UserId, request.RequestId, ct);
+            var log = await FindGiveUpLogAsync(userId, requestId, ct);
             if (log != null)
             {
                 if (log.StageId != stageId)
@@ -194,7 +193,7 @@ namespace MiniServerProject.Application.Stages
             }
 
             // 3) 실제 처리
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == request.UserId, ct)
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
@@ -212,7 +211,7 @@ namespace MiniServerProject.Application.Stages
                 user.AddStamina(refundStamina, now);
 
                 // 멱등성 보장을 위해 로그 INSERT
-                log = new StageGiveUpLog(user.UserId, stageId, request.RequestId, refundStamina, user.Stamina, now);
+                log = new StageGiveUpLog(user.UserId, stageId, requestId, refundStamina, user.Stamina, now);
                 _db.StageGiveUpLogs.Add(log);
 
                 await _db.SaveChangesAsync(ct);
@@ -220,13 +219,13 @@ namespace MiniServerProject.Application.Stages
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
                 // 이미 처리된 요청
-                log = await FindGiveUpLogAsync(request.UserId, request.RequestId, ct);
+                log = await FindGiveUpLogAsync(userId, requestId, ct);
                 if (log == null)
                 {
                     _logger.LogError(
                         ex,
                         "Idempotency log missing after unique violation. userId={UserId} requestId={RequestId} stageId={StageId}",
-                        request.UserId, request.RequestId, stageId);
+                        userId, requestId, stageId);
 
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }

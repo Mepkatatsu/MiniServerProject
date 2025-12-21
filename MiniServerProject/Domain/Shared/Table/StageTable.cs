@@ -23,6 +23,11 @@ namespace MiniServerProject.Domain.Table
             datas.Add("TEST-001-NORMAL", testStage1Data);
             datas.Add("TEST-002-NORMAL", testStage2Data);
         }
+
+        public KeyValuePair<string, StageData> GetIdFirstOrDefault()
+        {
+            return datas.FirstOrDefault();
+        }
     }
 
     public class StageData

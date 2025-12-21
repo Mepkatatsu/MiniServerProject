@@ -25,7 +25,6 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task CreateUser_ShouldCreateNewUser()
         {
-            // Arrange
             using var db = TestDbFactory.CreateInMemoryDb(nameof(CreateUser_ShouldCreateNewUser));
             var service = CreateService(db);
 
@@ -47,7 +46,6 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task CreateUser_WithSameAccountId_ShouldReturnSameUser()
         {
-            // Arrange
             using var db = TestDbFactory.CreateInMemoryDb(nameof(CreateUser_WithSameAccountId_ShouldReturnSameUser));
             var service = CreateService(db);
 
@@ -79,14 +77,18 @@ namespace MiniServerProject.Tests.Users
             var nickname = "cache-preload";
             var cacheKey = IdempotencyKeyFactory.CreateUser(accountId);
 
-            // 캐시에 이미 완료된 응답을 미리 심어둠
-            await cache.SetAsync(cacheKey, new UserResponse { UserId = testUserId, Nickname = nickname }, TimeSpan.FromMinutes(10));
+            var response = new UserResponse(new Domain.Entities.User(accountId, nickname))
+            {
+                UserId = testUserId
+            };
+
+            // Act: 캐시에 이미 완료된 응답을 미리 심어둠
+            await cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
 
             var result = await service.CreateAsync(accountId, nickname, CancellationToken.None);
 
+            // Asset: DB를 안 탔음을 증명
             Assert.Equal(testUserId, result.UserId);
-
-            // DB를 안 탔음을 증명
             Assert.Equal(0, db.Users.Count());
             Assert.Equal(0, db.UserCreateLogs.Count());
         }
@@ -100,9 +102,11 @@ namespace MiniServerProject.Tests.Users
             var service = CreateService(db);
             var nickname = "invalid-001";
 
+            // Act
             var exception = await Assert.ThrowsAsync<DomainException>(() =>
                 service.CreateAsync(accountId, nickname, CancellationToken.None));
 
+            // Assert
             Assert.Equal(ErrorType.InvalidRequest, exception.ErrorType);
         }
 
@@ -115,9 +119,11 @@ namespace MiniServerProject.Tests.Users
             var service = CreateService(db);
             var accountId = "test-invalid-002";
 
+            // Act
             var exception = await Assert.ThrowsAsync<DomainException>(() =>
                 service.CreateAsync(accountId, nickname, CancellationToken.None));
 
+            // Assert
             Assert.Equal(ErrorType.InvalidRequest, exception.ErrorType);
         }
 
@@ -128,12 +134,13 @@ namespace MiniServerProject.Tests.Users
             using var db = TestDbFactory.CreateInMemoryDb(nameof(GetUser_WhenNotExists_ShouldThrowNotFound));
             var service = CreateService(db);
 
-            // Act / Assert
+            // Act
             var exception = await Assert.ThrowsAsync<DomainException>(async () =>
             {
                 await service.GetAsync(ulong.MaxValue, CancellationToken.None);
             });
 
+            // Assert
             Assert.Equal(ErrorType.UserNotFound, exception.ErrorType);
         }
     }
