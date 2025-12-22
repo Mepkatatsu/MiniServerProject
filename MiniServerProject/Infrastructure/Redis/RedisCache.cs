@@ -5,12 +5,15 @@ namespace MiniServerProject.Infrastructure.Redis
 {
     public sealed class RedisCache : IIdempotencyCache
     {
-        private readonly IDatabase _redisDb;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-        public RedisCache(IConnectionMultiplexer mux)
+        private readonly IDatabase _redisDb;
+        private readonly ILogger _logger;
+
+        public RedisCache(IConnectionMultiplexer mux, ILogger logger)
         {
             _redisDb = mux.GetDatabase();
+            _logger = logger;
         }
 
         public async Task<T?> GetAsync<T>(string key)
@@ -25,7 +28,7 @@ namespace MiniServerProject.Infrastructure.Redis
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Redis] GET failed. key={key}, ex={ex.GetType().Name}: {ex.Message}");
+                _logger.LogInformation($"[Redis] GET failed. key={key}, ex={ex.GetType().Name}: {ex.Message}");
                 return default;
             }
         }
@@ -39,7 +42,7 @@ namespace MiniServerProject.Infrastructure.Redis
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Redis] SET failed. key={key}, ex={ex.GetType().Name}: {ex.Message}");
+                _logger.LogInformation($"[Redis] SET failed. key={key}, ex={ex.GetType().Name}: {ex.Message}");
             }
         }
     }

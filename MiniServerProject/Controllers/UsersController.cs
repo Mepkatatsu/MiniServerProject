@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MiniServerProject.Application;
 using MiniServerProject.Application.Users;
 using MiniServerProject.Controllers.Request;
 
@@ -20,9 +21,9 @@ namespace MiniServerProject.Controllers
         public async Task<IActionResult> Create([FromBody] CreateUserRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(request.AccountId))
-                return BadRequest("AccountId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "AccountId is required.");
             if (string.IsNullOrWhiteSpace(request.Nickname))
-                return BadRequest("Nickname is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "Nickname is required.");
 
             var accountId = request.AccountId.Trim();
             var nickname = request.Nickname.Trim();

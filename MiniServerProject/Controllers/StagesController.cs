@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MiniServerProject.Application;
 using MiniServerProject.Application.Stages;
 using MiniServerProject.Controllers.Request;
 
@@ -19,11 +20,11 @@ namespace MiniServerProject.Controllers
         public async Task<IActionResult> Enter(string stageId, [FromBody] EnterStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
-                return BadRequest("stageId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "stageId is required.");
             if (request.UserId == 0)
-                return BadRequest("userId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "userId is required.");
             if (string.IsNullOrWhiteSpace(request.RequestId))
-                return BadRequest("requestId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "requestId is required.");
 
             var resp = await _stageService.EnterAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
@@ -33,11 +34,11 @@ namespace MiniServerProject.Controllers
         public async Task<IActionResult> Clear(string stageId, [FromBody] ClearStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
-                return BadRequest("stageId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "stageId is required.");
             if (request.UserId == 0)
-                return BadRequest("userId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "userId is required.");
             if (string.IsNullOrWhiteSpace(request.RequestId))
-                return BadRequest("requestId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "requestId is required.");
 
             var resp = await _stageService.ClearAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
@@ -47,11 +48,11 @@ namespace MiniServerProject.Controllers
         public async Task<IActionResult> GiveUp(string stageId, [FromBody] GiveUpStageRequest request, CancellationToken ct)
         {
             if (string.IsNullOrWhiteSpace(stageId))
-                return BadRequest("stageId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "stageId is required.");
             if (request.UserId == 0)
-                return BadRequest("userId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "userId is required.");
             if (string.IsNullOrWhiteSpace(request.RequestId))
-                return BadRequest("requestId is required.");
+                throw new DomainException(ErrorType.InvalidRequest, "requestId is required.");
 
             var resp = await _stageService.GiveUpAsync(request.UserId, request.RequestId, stageId, ct);
             return Ok(resp);
