@@ -25,7 +25,7 @@
 ### 2) 실서비스 패턴의 멱등성 처리 (Redis + DB Log + UNIQUE)
 모든 “치명적인 중복 요청이 발생할 수 있는” POST 요청에 대해 멱등성을 적용했습니다.
 
-**정합성의 최종 보장은 DB 로그 + UNIQUE 제약으로 처리**하고, Redis는 응답 캐시(가속기)로 사용합니다.
+**정합성의 최종 보장은 DB 로그 + UNIQUE 제약으로 처리**하고, Redis는 빠른 응답을 위한 캐싱 시스템으로 사용합니다.
 
 공통 흐름은 다음과 같습니다.
 
@@ -108,7 +108,7 @@
 - `Domain/`
   - `Entities/User` : 서버 권위 상태 전이
   - `ServerLogs/*` : 멱등성/운영을 위한 로그 테이블
-  - `Table/*` : 정적 테이블 구조
+  - `Tables/*` : 정적 테이블 구조
 - `Infrastructure/`
   - `Persistence(GameDbContext + EF Configurations)`
   - `Redis/RedisCache` : `IIdempotencyCache` 구현
