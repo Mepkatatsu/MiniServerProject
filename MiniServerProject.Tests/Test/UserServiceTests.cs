@@ -1,10 +1,10 @@
 ﻿using Microsoft.Extensions.Logging.Abstractions;
 using MiniServerProject.Application;
 using MiniServerProject.Application.Users;
-using MiniServerProject.Controllers.Response;
 using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
 using MiniServerProject.Tests.TestHelpers;
+using MiniServerProject.Domain.Entities;
 
 namespace MiniServerProject.Tests.Users
 {
@@ -77,10 +77,9 @@ namespace MiniServerProject.Tests.Users
             var nickname = "cache-preload";
             var cacheKey = IdempotencyKeyFactory.CreateUser(accountId);
 
-            var response = new UserResponse(new Domain.Entities.User(accountId, nickname))
-            {
-                UserId = testUserId
-            };
+            var user = new User(accountId, nickname);
+            var response = user.CreateResponse();
+            response.UserId = testUserId;
 
             // Act: 캐시에 이미 완료된 응답을 미리 심어둠
             await cache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));

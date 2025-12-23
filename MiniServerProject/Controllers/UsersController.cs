@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using MiniServerProject.Application;
 using MiniServerProject.Application.Users;
-using MiniServerProject.Controllers.Request;
+using MiniServerProject.Shared.Requests;
 
-namespace MiniServerProject.Controllers
+namespace MiniServerProject.Shared
 {
     [ApiController]
     [Route("users")]

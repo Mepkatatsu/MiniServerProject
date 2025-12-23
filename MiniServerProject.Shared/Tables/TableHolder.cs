@@ -1,6 +1,4 @@
-﻿using MiniServerProject.Domain.Shared.Table;
-
-namespace MiniServerProject.Domain.Table
+﻿namespace MiniServerProject.Shared.Tables
 {
     public static class TableHolder
     {

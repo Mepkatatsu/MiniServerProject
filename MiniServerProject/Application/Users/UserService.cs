@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MiniServerProject.Controllers.Response;
+using MiniServerProject.Shared.Responses;
 using MiniServerProject.Domain.Entities;
 using MiniServerProject.Domain.ServerLogs;
 using MiniServerProject.Infrastructure;
@@ -46,7 +46,7 @@ namespace MiniServerProject.Application.Users
             var user = await FindUserAsync(accountId, ct);
             if (user != null)
             {
-                response = new UserResponse(user);
+                response = user.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
@@ -79,12 +79,12 @@ namespace MiniServerProject.Application.Users
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
-                response = new UserResponse(user);
+                response = user.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
 
-            response = new UserResponse(user);
+            response = user.CreateResponse();
             await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
             return response;
         }
@@ -94,8 +94,7 @@ namespace MiniServerProject.Application.Users
             var user = await FindUserAsync(userId, ct)
                 ?? throw new DomainException(ErrorType.UserNotFound);
 
-            var response = new UserResponse(user);
-            return response;
+            return user.CreateResponse();
         }
 
         private async Task<User?> FindUserAsync(string accountId, CancellationToken ct)

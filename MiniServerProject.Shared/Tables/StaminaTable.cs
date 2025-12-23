@@ -1,7 +1,4 @@
-﻿
-using MiniServerProject.Domain.Table;
-
-namespace MiniServerProject.Domain.Shared.Table
+﻿namespace MiniServerProject.Shared.Tables
 {
     public class StaminaTable : TableBase<ushort, StaminaData>
     {

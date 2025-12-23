@@ -1,6 +1,4 @@
-﻿using MiniServerProject.Domain.Entities;
-
-namespace MiniServerProject.Controllers.Response
+﻿namespace MiniServerProject.Shared.Responses
 {
     public class UserResponse
     {
@@ -16,18 +14,5 @@ namespace MiniServerProject.Controllers.Response
 
         // Deserialize용 생성자
         public UserResponse() { }
-
-        public UserResponse(User user)
-        {
-            Nickname = user.Nickname;
-            UserId = user.UserId;
-            Level = user.Level;
-            Stamina = user.Stamina;
-            Gold = user.Gold;
-            Exp = user.Exp;
-            CreateDateTime = user.CreateDateTime;
-            LastStaminaUpdateTime = user.LastStaminaUpdateTime;
-            CurrentStageId = user.CurrentStageId;
-        }
     }
 }

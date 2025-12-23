@@ -1,4 +1,4 @@
-﻿namespace MiniServerProject.Controllers.Request
+﻿namespace MiniServerProject.Shared.Requests
 {
     public sealed class GiveUpStageRequest
     {

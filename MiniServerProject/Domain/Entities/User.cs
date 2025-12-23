@@ -1,6 +1,5 @@
-﻿using MiniServerProject.Controllers.Response;
-using MiniServerProject.Domain.Shared.Table;
-using MiniServerProject.Domain.Table;
+﻿using MiniServerProject.Shared.Responses;
+using MiniServerProject.Shared.Tables;
 
 namespace MiniServerProject.Domain.Entities
 {
@@ -54,6 +53,24 @@ namespace MiniServerProject.Domain.Entities
             Stamina = initialStamina;
             CreateDateTime = DateTime.UtcNow;
             LastStaminaUpdateTime = DateTime.UtcNow;
+        }
+
+        public UserResponse CreateResponse()
+        {
+            var response = new UserResponse()
+            {
+                Nickname = Nickname,
+                UserId = UserId,
+                Level = Level,
+                Stamina = Stamina,
+                Gold = Gold,
+                Exp = Exp,
+                CreateDateTime = CreateDateTime,
+                LastStaminaUpdateTime = LastStaminaUpdateTime,
+                CurrentStageId = CurrentStageId,
+            };
+
+            return response;
         }
 
         public bool UpdateStaminaByDateTime(DateTime currentDateTime)

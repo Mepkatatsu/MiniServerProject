@@ -1,4 +1,4 @@
-﻿using MiniServerProject.Controllers.Response;
+﻿using MiniServerProject.Shared.Responses;
 
 namespace MiniServerProject.Application.Users
 {

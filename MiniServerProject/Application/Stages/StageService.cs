@@ -1,10 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using MiniServerProject.Controllers.Response;
+using MiniServerProject.Shared.Responses;
 using MiniServerProject.Domain.ServerLogs;
-using MiniServerProject.Domain.Shared.Table;
-using MiniServerProject.Domain.Table;
 using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
+using MiniServerProject.Shared.Tables;
 
 namespace MiniServerProject.Application.Stages
 {
@@ -41,7 +40,7 @@ namespace MiniServerProject.Application.Stages
                 if (log.StageId != stageId)
                     throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
-                response = new EnterStageResponse(log);
+                response = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
@@ -84,12 +83,12 @@ namespace MiniServerProject.Application.Stages
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
-                var resp = new EnterStageResponse(log);
+                var resp = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, resp, TimeSpan.FromMinutes(10));
                 return resp;
             }
 
-            response = new EnterStageResponse(log);
+            response = log.CreateResponse();
             await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
             return response;
         }
@@ -113,7 +112,7 @@ namespace MiniServerProject.Application.Stages
                 if (log.StageId != stageId)
                     throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
-                response = new ClearStageResponse(log);
+                response = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
@@ -158,12 +157,12 @@ namespace MiniServerProject.Application.Stages
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
-                response = new ClearStageResponse(log);
+                response = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
 
-            response = new ClearStageResponse(log);
+            response = log.CreateResponse();
             await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
             return response;
         }
@@ -187,7 +186,7 @@ namespace MiniServerProject.Application.Stages
                 if (log.StageId != stageId)
                     throw new DomainException(ErrorType.RequestIdUsedForDifferentStage);
 
-                response = new GiveUpStageResponse(log);
+                response = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
@@ -230,12 +229,12 @@ namespace MiniServerProject.Application.Stages
                     throw new DomainException(ErrorType.IdempotencyMissingAfterUniqueViolation);
                 }
 
-                response = new GiveUpStageResponse(log);
+                response = log.CreateResponse();
                 await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
                 return response;
             }
 
-            response = new GiveUpStageResponse(log);
+            response = log.CreateResponse();
             await _idemCache.SetAsync(cacheKey, response, TimeSpan.FromMinutes(10));
             return response;
         }

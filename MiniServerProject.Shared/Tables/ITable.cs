@@ -1,4 +1,4 @@
-﻿namespace MiniServerProject.Domain.Table
+﻿namespace MiniServerProject.Shared.Tables
 {
     public interface ITable
     {

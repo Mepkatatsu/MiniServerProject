@@ -1,4 +1,6 @@
-﻿namespace MiniServerProject.Domain.ServerLogs
+﻿using MiniServerProject.Shared.Responses;
+
+namespace MiniServerProject.Domain.ServerLogs
 {
     public class StageEnterLog
     {
@@ -27,6 +29,19 @@
             ConsumedStamina = consumedStamina;
             AfterStamina = afterStamina;
             EnteredDateTime = enteredDateTime;
+        }
+
+        public EnterStageResponse CreateResponse()
+        {
+            var response = new EnterStageResponse()
+            {
+                RequestId = RequestId,
+                StageId = StageId,
+                ConsumedStamina = ConsumedStamina,
+                AfterStamina = AfterStamina,
+            };
+
+            return response;
         }
     }
 }

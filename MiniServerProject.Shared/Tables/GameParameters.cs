@@ -1,7 +1,4 @@
-﻿using MiniServerProject.Domain.Table;
-using System;
-
-namespace MiniServerProject.Domain.Shared.Table
+﻿namespace MiniServerProject.Shared.Tables
 {
     public class GameParameters : ITable
     {

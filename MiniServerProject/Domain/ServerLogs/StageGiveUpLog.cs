@@ -1,4 +1,6 @@
-﻿namespace MiniServerProject.Domain.ServerLogs
+﻿using MiniServerProject.Shared.Responses;
+
+namespace MiniServerProject.Domain.ServerLogs
 {
     public class StageGiveUpLog
     {
@@ -27,6 +29,19 @@
             RefundStamina = refundStamina;
             AfterStamina = afterStamina;
             GaveUpDateTime = gaveUpDateTime;
+        }
+
+        public GiveUpStageResponse CreateResponse()
+        {
+            var response = new GiveUpStageResponse()
+            {
+                RequestId = RequestId,
+                StageId = StageId,
+                RefundStamina = RefundStamina,
+                AfterStamina = AfterStamina,
+            };
+
+            return response;
         }
     }
 }

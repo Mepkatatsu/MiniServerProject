@@ -1,6 +1,4 @@
-﻿using MiniServerProject.Domain.Table;
-
-namespace MiniServerProject.Domain.Shared.Table
+﻿namespace MiniServerProject.Shared.Tables
 {
     public abstract class TableBase<TKey, TData> : ITable<TKey, TData> where TKey : notnull
     {

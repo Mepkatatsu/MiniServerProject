@@ -2,10 +2,9 @@
 using MiniServerProject.Application;
 using MiniServerProject.Application.Stages;
 using MiniServerProject.Application.Users;
-using MiniServerProject.Domain.Shared.Table;
-using MiniServerProject.Domain.Table;
 using MiniServerProject.Infrastructure;
 using MiniServerProject.Infrastructure.Persistence;
+using MiniServerProject.Shared.Tables;
 using MiniServerProject.Tests.TestHelpers;
 
 namespace MiniServerProject.Tests.Test

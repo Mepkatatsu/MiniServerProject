@@ -1,4 +1,6 @@
-﻿namespace MiniServerProject.Domain.ServerLogs
+﻿using MiniServerProject.Shared.Responses;
+
+namespace MiniServerProject.Domain.ServerLogs
 {
     public class StageClearLog
     {
@@ -33,6 +35,22 @@
             AfterGold = afterGold;
             AfterExp = afterExp;
             ClearedDateTime = clearedDateTime;
+        }
+
+        public ClearStageResponse CreateResponse()
+        {
+            var response = new ClearStageResponse()
+            {
+                RequestId = RequestId,
+                StageId = StageId,
+                RewardId = RewardId,
+                GainGold = GainGold,
+                GainExp = GainExp,
+                AfterGold = AfterGold,
+                AfterExp = AfterExp,
+            };
+
+            return response;
         }
     }
 }
