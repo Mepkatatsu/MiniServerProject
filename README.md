@@ -136,12 +136,17 @@
 
 ---
 
-## 실행 방법 (예시)
-> 아래 값들은 예시입니다. 실행 환경에 맞게 `appsettings.json`과 Redis/MySQL 설정을 수정해주세요.
+## 실행 방법
 
-1. MySQL 준비 및 ConnectionString 설정 (`GameDb`)
-2. Redis 실행 (`localhost:6379`)
-3. 실행
+1. MySQL 준비 및 ConnectionString 설정 (`MiniServerProject\appsettings.json`의 `GameDb`)
+2. Redis 실행 (`localhost:6379`, 필수X)
 
 ```bash
-dotnet run
+
+3. run-dev-with-migration.bat 파일 실행
+
+혹은
+
+dotnet ef database update --project MiniServerProject\MiniServerProject.csproj
+start "MiniServerProject" dotnet run --project MiniServerProject\MiniServerProject.csproj --launch-profile "https"
+start "" https://localhost:7165/swagger
