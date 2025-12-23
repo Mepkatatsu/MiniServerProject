@@ -8,9 +8,9 @@ namespace MiniServerProject.Infrastructure.Redis
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly IDatabase _redisDb;
-        private readonly ILogger _logger;
+        private readonly ILogger<RedisCache> _logger;
 
-        public RedisCache(IConnectionMultiplexer mux, ILogger logger)
+        public RedisCache(IConnectionMultiplexer mux, ILogger<RedisCache> logger)
         {
             _redisDb = mux.GetDatabase();
             _logger = logger;
