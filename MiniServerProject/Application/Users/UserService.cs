@@ -89,9 +89,9 @@ namespace MiniServerProject.Application.Users
             return response;
         }
 
-        public async Task<UserResponse> GetAsync(ulong userId, CancellationToken ct)
+        public async Task<UserResponse> GetAsync(string accountId, CancellationToken ct)
         {
-            var user = await FindUserAsync(userId, ct)
+            var user = await FindUserAsync(accountId, ct)
                 ?? throw new DomainException(ErrorType.UserNotFound);
 
             return user.CreateResponse();

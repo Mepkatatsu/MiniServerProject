@@ -32,11 +32,11 @@ namespace MiniServerProject.Shared
             return Ok(resp);
         }
 
-        // GET /users/{userId}
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetById(ulong userId, CancellationToken ct)
+        // GET /users/{accountId}
+        [HttpGet("{accountId}")]
+        public async Task<IActionResult> GetByAccountId(string accountId, CancellationToken ct)
         {
-            var resp = await _userService.GetAsync(userId, ct);
+            var resp = await _userService.GetAsync(accountId, ct);
             return Ok(resp);
         }
     }

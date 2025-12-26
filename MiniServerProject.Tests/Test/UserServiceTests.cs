@@ -133,10 +133,12 @@ namespace MiniServerProject.Tests.Users
             using var db = TestDbFactory.CreateInMemoryDb(nameof(GetUser_WhenNotExists_ShouldThrowNotFound));
             var service = CreateService(db);
 
+            var accountId = "test-not-exist-001";
+
             // Act
             var exception = await Assert.ThrowsAsync<DomainException>(async () =>
             {
-                await service.GetAsync(ulong.MaxValue, CancellationToken.None);
+                await service.GetAsync(accountId, CancellationToken.None);
             });
 
             // Assert
