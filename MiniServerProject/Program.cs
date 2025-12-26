@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MiniServerProject.Api.Middleware;
 using MiniServerProject.Application.Stages;
 using MiniServerProject.Application.Users;
@@ -25,15 +26,19 @@ builder.Services.AddDbContext<GameDbContext>(options =>
     options.UseMySql(cs, ServerVersion.AutoDetect(cs));
 });
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-{
-    var opt = ConfigurationOptions.Parse("localhost:6379");
-    opt.AbortOnConnectFail = false;
-    opt.ConnectTimeout = 200;
-    opt.SyncTimeout = 200;
-    opt.AsyncTimeout = 200;
+builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection("Redis"));
 
-    return ConnectionMultiplexer.Connect(opt);
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var opt = sp.GetRequiredService<IOptions<RedisOptions>>().Value;
+
+    var config = ConfigurationOptions.Parse(opt.ConnectionString);
+    config.AbortOnConnectFail = opt.AbortOnConnectFail;
+    config.ConnectTimeout = opt.ConnectTimeout;
+    config.SyncTimeout = opt.SyncTimeout;
+    config.AsyncTimeout = opt.AsyncTimeout;
+
+    return ConnectionMultiplexer.Connect(config);
 });
 
 builder.Services.AddSingleton<IIdempotencyCache, RedisCache>();
