@@ -1,6 +1,6 @@
 # MiniServerProject
 
-게임 서버 컨텐츠 로직(스테이지 Enter/Clear/GiveUp) 구현을 통해 **상태 전이 기반 API**, **멱등성(Idempotency)**, **운영 관점 예외/로그**를 포트폴리오로 정리한 프로젝트입니다.
+게임 서버 컨텐츠 로직(스테이지 Enter/Clear/GiveUp) 구현을 통해 서버 중심의 **상태 전이 기반 API**, **멱등성(Idempotency)**, **운영 관점 예외/로그** 처리를 목적으로 한 프로젝트입니다.
 
 실제 게임 서버에서 자주 맞닥뜨리는 문제(재시도/중복 요청, 동시성, 상태 정합성, 운영 장애 대응)를 최소 범위로 구현/검증하는 것을 목표로 했습니다.
 
@@ -18,7 +18,7 @@
 유저는 다음 API로 관리합니다.
 
 - `POST /users` : 유저 생성 (AccountId 기반 멱등성)
-- `GET /users/{userId}` : 유저 조회
+- `GET /users/{accountId}` : 유저 조회
 
 ---
 
@@ -95,23 +95,27 @@
 ---
 
 ## 프로젝트 구조(요약)
+[MiniServerProject]
 - `Api/`
   - `Middleware/ExceptionHandlingMiddleware` : 전역 예외 처리
   - `Common/ApiErrorResponse` : 표준 에러 응답
-- `Controllers/`
-  - `UsersController`, `StagesController`
-  - Request/Response DTO
 - `Application/`
   - `UserService`, `StageService`
-  - 멱등성 키 규칙: `IdempotencyKeyFactory`
+  - `IdempotencyKeyFactory` : 멱등성 키 규칙
   - `DomainException`, `ErrorType`
+- `Controllers/`
+  - `UsersController`, `StagesController`
 - `Domain/`
-  - `Entities/User` : 서버 권위 상태 전이
+  - `Entities/User` : 서버 중심 상태 전이
   - `ServerLogs/*` : 멱등성/운영을 위한 로그 테이블
-  - `Tables/*` : 정적 테이블 구조
 - `Infrastructure/`
-  - `Persistence(GameDbContext + EF Configurations)`
+  - `Persistence` : GameDbContext + EF Configurations
   - `Redis/RedisCache` : `IIdempotencyCache` 구현
+
+[MiniServerProject.Shared] : 서버-클라이언트 간 공유하는 코드
+  - `Requests/`
+  - `Responses/`
+  - `Tables/` : 정적 테이블 구조
 
 ---
 
@@ -136,10 +140,24 @@
 
 ---
 
+## 테스트 클라이언트
+
+간편하게 기능을 테스트해볼 수 있도록 콘솔 기반 테스트 클라이언트를 함께 구성했습니다.
+
+- 로그인 / 유저 생성
+- 유저 정보 표시
+- 스테이지 진입 / 클리어 / 포기 시나리오
+
+테스트 클라이언트는 의도적으로 단순한 구조를 유지하며, 클라이언트 측 입력 검증 및 예외 처리는 최소화했습니다.
+이는 클라이언트가 불완전한 상태에서도 서버 로직이 안정적으로 동작하는지 확인하는 데 초점을 두었기 때문입니다.
+
+---
+
 ## 실행 방법
 
+(서버)
 1. MySQL 준비 및 ConnectionString 설정 (`MiniServerProject\appsettings.json`의 `GameDb`)
-2. Redis 실행 (`localhost:6379`, 필수X)
+2. Redis 설정 및 실행 (필수 X, `MiniServerProject\appsettings.json`의 `Redis`, `기본) localhost:6379`)
 
 ```bash
 
@@ -150,3 +168,28 @@
 dotnet ef database update --project MiniServerProject\MiniServerProject.csproj
 start "MiniServerProject" dotnet run --project MiniServerProject\MiniServerProject.csproj --launch-profile "https"
 start "" https://localhost:7165/swagger
+
+```
+
+(테스트)
+```bash
+
+test-dev-with-migration.bat 실행
+
+혹은
+
+dotnet ef database update --project MiniServerProject\MiniServerProject.csproj
+dotnet test
+
+```
+
+(테스트 클라이언트)
+```bash
+
+run-testclient-dev.bat 파일 실행
+
+혹은
+
+dotnet run --project MiniServerProject.TestClient\MiniServerProject.TestClient.csproj
+
+```
