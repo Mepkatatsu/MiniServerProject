@@ -2,7 +2,13 @@
 {
     public sealed class CreateUserRequest
     {
-        public required string AccountId { get; init; }
-        public required string Nickname { get; init; }
+        public string AccountId { get; init; } = null!;
+        public string Nickname { get; init; } = null!;
+
+        public CreateUserRequest(string accountId, string nickname)
+        {
+            AccountId = accountId;
+            Nickname = nickname;
+        }
     }
 }

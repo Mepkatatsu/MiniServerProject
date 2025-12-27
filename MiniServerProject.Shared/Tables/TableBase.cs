@@ -13,5 +13,15 @@
 
             return data;
         }
+
+        public ICollection<TKey> GetAllKeys()
+        {
+            return datas.Keys;
+        }
+
+        public ICollection<TData> GetAllValues()
+        {
+            return datas.Values;
+        }
     }
 }
