@@ -58,20 +58,34 @@ namespace MiniServerProject.Application.Stages
             if (testDelayMs > 0)
                 await Task.Delay(testDelayMs);
 
+            // 3) 실제 처리
+            var now = DateTime.UtcNow;
+            if (!user.ConsumeStamina(stageData.NeedStamina, now))
+                throw new DomainException(ErrorType.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
+
+            var afterStamina = user.Stamina;
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+            var affected = await _db.Users
+                                    .Where(u => u.UserId == userId && u.CurrentStageId == null)
+                                    .ExecuteUpdateAsync(setters =>
+                                        setters.SetProperty(u => u.CurrentStageId, stageId)
+                                               .SetProperty(u => u.Stamina, afterStamina)
+                                               .SetProperty(u => u.LastStaminaUpdateTime, user.LastStaminaUpdateTime)
+                                    , ct);
+
+            if (affected == 0)
+                throw new DomainException(ErrorType.UserAlreadyInStage);
+
             try
             {
-                // 3) 실제 처리
-                var now = DateTime.UtcNow;
-                if (!user.ConsumeStamina(stageData.NeedStamina, now))
-                    throw new DomainException(ErrorType.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
-
                 // 멱등성 보장을 위해 로그 INSERT
-                log = new StageEnterLog(user.UserId, stageId, requestId, stageData.NeedStamina, user.Stamina, now);
+                log = new StageEnterLog(user.UserId, stageId, requestId, stageData.NeedStamina, afterStamina, now);
                 _db.StageEnterLogs.Add(log);
 
-                user.SetCurrentStage(stageId);
-
                 await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
@@ -121,11 +135,11 @@ namespace MiniServerProject.Application.Stages
                 return response;
             }
 
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
-                throw new DomainException(ErrorType.UserNotInThisStage, new { current = user.CurrentStageId});
+                throw new DomainException(ErrorType.UserNotInThisStage, new { current = user.CurrentStageId });
 
             var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
                             ?? throw new DomainException(ErrorType.StageNotFound);
@@ -137,23 +151,35 @@ namespace MiniServerProject.Application.Stages
             if (testDelayMs > 0)
                 await Task.Delay(testDelayMs);
 
+            // 3) 실제 처리
+            var afterGold = user.Gold + reward.Gold;
+            var afterExp = user.Exp + reward.Exp;
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+            var affected = await _db.Users
+                                    .Where(u => u.UserId == userId && u.CurrentStageId == stageId)
+                                    .ExecuteUpdateAsync(setters =>
+                                        setters.SetProperty(u => u.Gold, afterGold)
+                                               .SetProperty(u => u.Exp, afterExp)
+                                               .SetProperty(u => u.CurrentStageId, (string?)null)
+                                    , ct);
+
+            if (affected == 0)
+                throw new DomainException(ErrorType.UserNotInThisStage);
+
             try
             {
-                // 3) 실제 처리
-                user.AddGold(reward.Gold);
-                user.AddExp(reward.Exp);
-                user.ClearCurrentStage(stageId);
-
-                // 멱등성 보장을 위해 로그 INSERT
+                // 응답 멱등성 보장을 위해 로그 INSERT
                 var now = DateTime.UtcNow;
-                log = new StageClearLog(user.UserId, stageId, requestId, stageData.RewardId, reward.Gold, reward.Exp, user.Gold, user.Exp, now);
+                log = new StageClearLog(user.UserId, stageId, requestId, stageData.RewardId, reward.Gold, reward.Exp, afterGold, afterExp, now);
                 _db.StageClearLogs.Add(log);
 
                 await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
-                // 이미 처리된 요청
                 log = await FindClearLogAsync(userId, requestId, ct);
                 if (log == null)
                 {
@@ -199,7 +225,7 @@ namespace MiniServerProject.Application.Stages
                 return response;
             }
 
-            var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
+            var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
             if (user.CurrentStageId != stageId)
@@ -214,18 +240,33 @@ namespace MiniServerProject.Application.Stages
             if (testDelayMs > 0)
                 await Task.Delay(testDelayMs);
 
+            // 3) 실제 처리
+            var now = DateTime.UtcNow;
+            user.AddStamina(refundStamina, now);
+
+            var afterStamina = user.Stamina;
+
+            await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+            var affected = await _db.Users
+                                    .Where(u => u.UserId == userId && u.CurrentStageId == stageId)
+                                    .ExecuteUpdateAsync(setters =>
+                                        setters.SetProperty(u => u.CurrentStageId, (string?)null)
+                                               .SetProperty(u => u.Stamina, afterStamina)
+                                               .SetProperty(u => u.LastStaminaUpdateTime, user.LastStaminaUpdateTime)
+                                    , ct);
+
+            if (affected == 0)
+                throw new DomainException(ErrorType.UserNotInThisStage);
+
             try
             {
-                // 3) 실제 처리
-                var now = DateTime.UtcNow;
-                user.ClearCurrentStage(user.CurrentStageId);
-                user.AddStamina(refundStamina, now);
-
                 // 멱등성 보장을 위해 로그 INSERT
-                log = new StageGiveUpLog(user.UserId, stageId, requestId, refundStamina, user.Stamina, now);
+                log = new StageGiveUpLog(user.UserId, stageId, requestId, refundStamina, afterStamina, now);
                 _db.StageGiveUpLogs.Add(log);
 
                 await _db.SaveChangesAsync(ct);
+                await tx.CommitAsync(ct);
             }
             catch (DbUpdateException ex) when (IsUniqueViolation(ex))
             {
