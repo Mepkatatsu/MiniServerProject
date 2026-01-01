@@ -7,7 +7,7 @@ namespace MiniServerProject.Tests.TestHelpers
 {
     public static class TestDbFactory
     {
-        public static async Task<(GameDbContext Db, Func<Task> Cleanup)> CreateMySqlDbAsync()
+        public static async Task<(Func<GameDbContext> CreateDb, Func<Task> Cleanup)> CreateMySqlDbAsync()
         {
             var environment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
                 ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
@@ -34,26 +34,32 @@ namespace MiniServerProject.Tests.TestHelpers
 
             // 2) DbContext 생성
             var cs = $"{connectionString};Database={dbName}";
+            var serverVersion = ServerVersion.AutoDetect(cs);
 
-            var options = new DbContextOptionsBuilder<GameDbContext>()
-                .UseMySql(cs, ServerVersion.AutoDetect(cs))
-                .EnableSensitiveDataLogging()
-                .Options;
+            GameDbContext CreateDb()
+            {
+                var options = new DbContextOptionsBuilder<GameDbContext>()
+                    .UseMySql(cs, serverVersion)
+                    .EnableSensitiveDataLogging()
+                    .Options;
 
-            var db = new GameDbContext(options);
-            await db.Database.MigrateAsync();
+                return new GameDbContext(options);
+            }
+
+            await using (var db = CreateDb())
+            {
+                await db.Database.MigrateAsync();
+            }
 
             async Task Cleanup()
             {
-                await db.DisposeAsync();
-
                 await using var connection = new MySqlConnection(connectionString);
                 await connection.OpenAsync();
                 await new MySqlCommand($"DROP DATABASE IF EXISTS `{dbName}`;", connection)
                     .ExecuteNonQueryAsync();
             }
 
-            return (db, Cleanup);
+            return (CreateDb, Cleanup);
         }
     }
 }

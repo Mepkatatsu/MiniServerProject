@@ -26,7 +26,9 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task CreateUser_ShouldCreateNewUser()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -54,7 +56,9 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task CreateUser_WithSameAccountId_ShouldReturnSameUser()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -83,7 +87,9 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task CreateUser_WhenCacheHasResponse_ShouldNotAccessDb()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var cache = new MemoryIdempotencyCache();
@@ -119,7 +125,9 @@ namespace MiniServerProject.Tests.Users
         [InlineData("   ")]
         public async Task CreateUser_WithInvalidAccountId_ShouldThrow(string accountId)
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -143,7 +151,9 @@ namespace MiniServerProject.Tests.Users
         [InlineData("   ")]
         public async Task CreateUser_WithInvalidNickname_ShouldThrow(string nickname)
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -165,7 +175,9 @@ namespace MiniServerProject.Tests.Users
         [Fact]
         public async Task GetUser_WhenNotExists_ShouldThrowNotFound()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);

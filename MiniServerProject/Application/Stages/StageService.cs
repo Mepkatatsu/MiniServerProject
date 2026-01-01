@@ -20,7 +20,7 @@ namespace MiniServerProject.Application.Stages
             _logger = logger;
         }
 
-        public async Task<EnterStageResponse> EnterAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
+        public async Task<EnterStageResponse> EnterAsync(ulong userId, string requestId, string stageId, CancellationToken ct, int testDelayMs = 0)
         {
             // 1) Redis 캐시 조회
             var cacheKey = IdempotencyKeyFactory.StageEnter(userId, stageId, requestId);
@@ -45,7 +45,6 @@ namespace MiniServerProject.Application.Stages
                 return response;
             }
 
-            // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
@@ -55,8 +54,13 @@ namespace MiniServerProject.Application.Stages
             var stageData = TableHolder.GetTable<StageTable>().Get(stageId)
                             ?? throw new DomainException(ErrorType.StageNotFound);
 
+            // Race Condition 테스트용 Delay
+            if (testDelayMs > 0)
+                await Task.Delay(testDelayMs);
+
             try
             {
+                // 3) 실제 처리
                 var now = DateTime.UtcNow;
                 if (!user.ConsumeStamina(stageData.NeedStamina, now))
                     throw new DomainException(ErrorType.NotEnoughStamina, new { current = user.Stamina, required = stageData.NeedStamina });
@@ -93,7 +97,7 @@ namespace MiniServerProject.Application.Stages
             return response;
         }
 
-        public async Task<ClearStageResponse> ClearAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
+        public async Task<ClearStageResponse> ClearAsync(ulong userId, string requestId, string stageId, CancellationToken ct, int testDelayMs = 0)
         {
             // 1) Redis 캐시 조회
             var cacheKey = IdempotencyKeyFactory.StageClear(userId, stageId, requestId);
@@ -117,7 +121,6 @@ namespace MiniServerProject.Application.Stages
                 return response;
             }
 
-            // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
@@ -130,8 +133,13 @@ namespace MiniServerProject.Application.Stages
             var reward = TableHolder.GetTable<RewardTable>().Get(stageData.RewardId)
                             ?? throw new DomainException(ErrorType.RewardNotFound);
 
+            // Race Condition 테스트용 Delay
+            if (testDelayMs > 0)
+                await Task.Delay(testDelayMs);
+
             try
             {
+                // 3) 실제 처리
                 user.AddGold(reward.Gold);
                 user.AddExp(reward.Exp);
                 user.ClearCurrentStage(stageId);
@@ -167,7 +175,7 @@ namespace MiniServerProject.Application.Stages
             return response;
         }
 
-        public async Task<GiveUpStageResponse> GiveUpAsync(ulong userId, string requestId, string stageId, CancellationToken ct)
+        public async Task<GiveUpStageResponse> GiveUpAsync(ulong userId, string requestId, string stageId, CancellationToken ct, int testDelayMs = 0)
         {
             // 1) Redis 캐시 조회
             var cacheKey = IdempotencyKeyFactory.StageGiveUp(userId, stageId, requestId);
@@ -191,7 +199,6 @@ namespace MiniServerProject.Application.Stages
                 return response;
             }
 
-            // 3) 실제 처리
             var user = await _db.Users.FirstOrDefaultAsync(x => x.UserId == userId, ct)
                         ?? throw new DomainException(ErrorType.UserNotFound);
 
@@ -203,8 +210,13 @@ namespace MiniServerProject.Application.Stages
             ushort consumedStamina = stage?.NeedStamina ?? 0;
             ushort refundStamina = TableHolder.GetTable<GameParameters>().GetRefundStamina(consumedStamina);
 
+            // Race Condition 테스트용 Delay
+            if (testDelayMs > 0)
+                await Task.Delay(testDelayMs);
+
             try
             {
+                // 3) 실제 처리
                 var now = DateTime.UtcNow;
                 user.ClearCurrentStage(user.CurrentStageId);
                 user.AddStamina(refundStamina, now);

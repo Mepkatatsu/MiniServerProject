@@ -35,7 +35,8 @@ namespace MiniServerProject.Tests.Test
         [Fact]
         public async Task EnterStage_ShouldSetCurrentStage_AndConsumeStamina()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -73,14 +74,16 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task EnterStage_WithSameRequestId_ShouldReturnSameResponse_AndNotDuplicatedLogs()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var cache = new MemoryIdempotencyCache();
@@ -108,14 +111,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task ClearStage_AfterEnter_ShouldRewardAndExitStage()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -156,14 +160,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task ClearStage_WithSameRequestId_ShouldReturnSameResponse_AndNotDuplicateLogs()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -199,14 +204,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task GiveUpStage_AfterEnter_ShouldRefundStamina_AndExitStage()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -261,14 +267,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task GiveUpStage_WithSameRequestId_ShouldReturnSameResponse_AndNotDuplicateLogs()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -300,14 +307,16 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task EnterStage_WhenNotEnoughStamina_ShouldThrow()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -334,14 +343,16 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task ClearStage_WithoutEnter_ShouldThrow()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
+
             try
             {
                 var service = CreateService(db);
@@ -363,14 +374,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }            
         }
 
         [Fact]
         public async Task GiveUpStage_WithoutEnter_ShouldThrow()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -393,14 +405,15 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
             }
         }
 
         [Fact]
         public async Task GiveUpStage_WhenStageNotFound_ShouldSucceess()
         {
-            var (db, cleanUp) = await TestDbFactory.CreateMySqlDbAsync();
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db = createDb();
 
             try
             {
@@ -429,7 +442,179 @@ namespace MiniServerProject.Tests.Test
             }
             finally
             {
-                await cleanUp();
+                await cleanup();
+            }
+        }
+
+        [Fact]
+        public async Task EnterStage_DuplicatedRequest_WithDifferentRequestId_ShouldThrow()
+        {
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db1 = createDb();
+            await using var db2 = createDb();
+
+            try
+            {
+                var service1 = CreateService(db1);
+                var service2 = CreateService(db2);
+
+                var userId = await SeedUserAsync(db1);
+                var stageDataKeyValue = TableHolder.GetTable<StageTable>().GetIdFirstOrDefault();
+                var stageId = stageDataKeyValue.Key;
+                var stageData = stageDataKeyValue.Value;
+
+                var requestId1 = "req-enter-duplicated-001";
+                var requestId2 = "req-enter-duplicated-002";
+
+                Assert.NotEmpty(stageId);
+                Assert.NotNull(stageData);
+
+                var user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+
+                var expectedStamina = user.Stamina - stageData.NeedStamina;
+
+                // Act
+                var result1 = service1.EnterAsync(userId, requestId1, stageId, CancellationToken.None, 1000);
+                var result2 = service2.EnterAsync(userId, requestId2, stageId, CancellationToken.None, 1000);
+                var exception = await Assert.ThrowsAsync<DomainException>(() => Task.WhenAll(result1, result2));
+
+                // Assert
+                Assert.Equal(ErrorType.UserAlreadyInStage, exception.ErrorType);
+
+                user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+                Assert.Equal(stageId, user.CurrentStageId);
+                Assert.Equal(expectedStamina, user.Stamina);
+
+                Assert.Equal(1, db1.StageEnterLogs.Count(x => x.UserId == userId && (x.RequestId == requestId1 || x.RequestId == requestId2)));
+            }
+            finally
+            {
+                await cleanup();
+            }
+        }
+
+        [Fact]
+        public async Task ClearStage_DuplicatedRequest_WithDifferentRequestId_ShouldThrow()
+        {
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db1 = createDb();
+            await using var db2 = createDb();
+
+            try
+            {
+                var service1 = CreateService(db1);
+                var service2 = CreateService(db2);
+
+                var userId = await SeedUserAsync(db1);
+                var stageDataKeyValue = TableHolder.GetTable<StageTable>().GetIdFirstOrDefault();
+                var stageId = stageDataKeyValue.Key;
+                var stageData = stageDataKeyValue.Value;
+
+                var enterRequestId = "req-enter-001";
+                var clearRequestId1 = "req-clear-duplicated-001";
+                var clearRequestId2 = "req-clear-duplicated-002";
+
+                Assert.NotEmpty(stageId);
+                Assert.NotNull(stageData);
+
+                var rewardData = TableHolder.GetTable<RewardTable>().Get(stageData.RewardId);
+                Assert.NotNull(rewardData);
+
+                var user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+
+                var expectedGold = user.Gold + rewardData.Gold;
+                var expectedExp = user.Exp + rewardData.Exp;
+
+                // Act
+                await service1.EnterAsync(userId, enterRequestId, stageId, CancellationToken.None);
+                var result1 = service1.ClearAsync(userId, clearRequestId1, stageId, CancellationToken.None, 1000);
+                var result2 = service2.ClearAsync(userId, clearRequestId2, stageId, CancellationToken.None, 1000);
+                var exception = await Assert.ThrowsAsync<DomainException>(() => Task.WhenAll(result1, result2));
+
+                // Assert
+                Assert.Equal(ErrorType.UserNotInThisStage, exception.ErrorType);
+
+                // Assert
+                user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+                Assert.Null(user.CurrentStageId);
+                Assert.Equal(expectedGold, user.Gold);
+                Assert.Equal(expectedExp, user.Exp);
+
+                Assert.Equal(1, db1.StageClearLogs.Count(x => x.UserId == userId && (x.RequestId == clearRequestId1 || x.RequestId == clearRequestId2)));
+            }
+            finally
+            {
+                await cleanup();
+            }
+        }
+
+        [Fact]
+        public async Task GiveUpStage_DuplicatedRequest_WithDifferentRequestId_ShouldThrow()
+        {
+            var (createDb, cleanup) = await TestDbFactory.CreateMySqlDbAsync();
+            await using var db1 = createDb();
+            await using var db2 = createDb();
+
+            try
+            {
+                var service1 = CreateService(db1);
+                var service2 = CreateService(db2);
+
+                var userId = await SeedUserAsync(db1);
+
+                var stageDataKeyValue = TableHolder.GetTable<StageTable>().GetIdFirstOrDefault();
+                var stageId = stageDataKeyValue.Key;
+                var stageData = stageDataKeyValue.Value;
+
+                Assert.NotEmpty(stageId);
+                Assert.NotNull(stageData);
+
+                var user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+
+                var beforeStamina = user.Stamina;
+
+                // Act: Enter 먼저 해서 스태미너 소비 + 스테이지 입장 상태 만들기
+                var enterRequestId = "req-enter-for-giveup-001";
+                await service1.EnterAsync(userId, enterRequestId, stageId, CancellationToken.None);
+
+                user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+
+                // Assert
+                var afterEnterStamina = user.Stamina;
+                Assert.Equal(beforeStamina - stageData.NeedStamina, afterEnterStamina);
+                Assert.Equal(stageId, user.CurrentStageId);
+
+                // GiveUp 시 반환 스태미너 계산
+                var expectedRefund = TableHolder.GetTable<GameParameters>().GetRefundStamina(stageData.NeedStamina);
+                var expectedStamina = afterEnterStamina + expectedRefund;
+
+                var giveUpRequestId1 = "req-giveup-duplicated-001";
+                var giveUpRequestId2 = "req-giveup-duplicated-002";
+
+                // Act
+                var result1 = service1.GiveUpAsync(userId, giveUpRequestId1, stageId, CancellationToken.None, 1000);
+                var result2 = service2.GiveUpAsync(userId, giveUpRequestId2, stageId, CancellationToken.None, 1000);
+                var exception = await Assert.ThrowsAsync<DomainException>(() => Task.WhenAll(result1, result2));
+
+                // Assert
+                Assert.Equal(ErrorType.UserNotInThisStage, exception.ErrorType);
+
+                user = await FindUserAsNoTracking(db1, userId);
+                Assert.NotNull(user);
+                Assert.Null(user.CurrentStageId);
+                Assert.Equal(expectedStamina, user.Stamina);
+
+                Assert.Equal(1, db1.StageGiveUpLogs.Count(x => x.UserId == userId && (x.RequestId == giveUpRequestId1 || x.RequestId == giveUpRequestId2)));
+            }
+            finally
+            {
+                await cleanup();
             }
         }
 
