@@ -1,4 +1,4 @@
-# MiniServerProject
+﻿# MiniServerProject
 
 게임 서버 컨텐츠 로직(스테이지 Enter/Clear/GiveUp) 구현을 통해 서버 중심의 **상태 전이 기반 API**, **멱등성(Idempotency)**, **운영 관점 예외/로그** 처리를 목적으로 한 프로젝트입니다.
 
@@ -40,10 +40,14 @@
 - 동일 `(UserId, RequestId)`가 이미 사용되었는데 `stageId`가 다르면  
   → `409 Conflict (RequestIdUsedForDifferentStage)` 반환
 
+또한, Stage API에서는 `RequestId`가 다른 경우에도 동일 스테이지에 대한 중복 처리를 방어합니다.
+
+- 동일 유저가 동일 stageId에 대해 동시에 Enter/Clear/GiveUp 요청을 보내더라도 DB 조건부 UPDATE를 통해 상태 전이는 단 한 번만 성공하도록 보장합니다.
+
 ---
 
 ### 3) 서버 중심의 상태 변경
-유저의 스태미너/스테이지 상태/재화 변화는 **User 엔티티**에서 관리합니다.
+유저의 스태미너/스테이지 상태/재화 변화는 **User 엔티티의 도메인 규칙**을 통해 관리합니다.
 
 - `UpdateStaminaByDateTime()`
   - `LastStaminaUpdateTime` 기반으로 경과 시간을 계산하고, 회복 주기(`GameParameters.StaminaRecoverCycleSec`)에 맞춰 자동 회복
@@ -53,7 +57,9 @@
 - `SetCurrentStage() / ClearCurrentStage(stageId)`
   - 잘못된 stageId로 Clear 시도 시 예외로 방어
 
-즉, 서비스/컨트롤러에서 임의로 상태를 조작하지 않고 **도메인 규칙을 통해 상태 전이를 통제**합니다.
+스테이지 Enter / Clear / GiveUp과 같이 중복 요청 및 동시성 처리가 중요한 경우
+- DB 조건부 UPDATE를 활용해 상태 전이를 원자적으로 처리
+- 도메인 로직은 수치 계산 및 규칙에 집중하도록 분리했습니다.
 
 ---
 
@@ -137,6 +143,7 @@
   - GiveUp 멱등성(동일 RequestId)
   - 스태미너 부족/Enter 없이 Clear/GiveUp 실패 케이스
   - Stage 정보가 없는 경우에도 GiveUp은 성공(유저 상태 정리 목적)
+  - 서로 다른 requestId로 동시에 Enter / Cleat/ GiveUp 요청
 
 ---
 
@@ -172,6 +179,8 @@ start "" https://localhost:7165/swagger
 ```
 
 (테스트)
+1. MySQL 준비 및 ConnectionString 설정 (`MiniServerProject\appsettings.json`의 `TEST_MYSQL_CS`)
+
 ```bash
 
 test-dev-with-migration.bat 실행
